@@ -1,4 +1,4 @@
-# 🚗 Car Sales App - Ứng dụng Bán Ô tô
+# 🏍️ Honda Motorcycle Sales App - Ứng dụng Bán Xe Máy Honda
 
 > **Dự án Chuyên đề 2**
 > **Nền tảng:** Android Studio, Flutter & Dart.
@@ -11,24 +11,23 @@
 ---
 
 ## 📖 Mô tả dự án
-**Car Sales App** là một ứng dụng di động được phát triển bằng Flutter, cung cấp nền tảng giao dịch và tham khảo thông tin các dòng xe ô tô. Ứng dụng hướng tới trải nghiệm người dùng mượt mà, giúp khách hàng dễ dàng tìm kiếm, xem thông tin chi tiết (thông số kỹ thuật, giá cả, hình ảnh) và liên hệ mua xe hoặc đặt lịch lái thử.
+**Honda Motorcycle Sales App** là một ứng dụng di động được phát triển bằng Flutter, chuyên cung cấp nền tảng tham khảo và giao dịch các dòng xe máy chính hãng của Honda. Ứng dụng mang đến trải nghiệm mượt mà giúp người dùng dễ dàng tra cứu thông tin xe, so sánh thông số, xem giá bán lẻ đề xuất và liên hệ với các đại lý (HEAD) để mua xe hoặc sử dụng dịch vụ.
 
 ---
 
 ## ✨ Các tính năng nổi bật (Dự kiến)
 
 ### Dành cho Khách hàng (User)
-* **Xác thực người dùng:** Đăng nhập, Đăng ký, Quên mật khẩu.
-* **Khám phá xe:** Xem danh sách các mẫu xe mới nhất, xe bán chạy.
-* **Tìm kiếm & Lọc:** Lọc xe theo hãng sản xuất (Toyota, Honda, Ford,...), mức giá, kiểu dáng (Sedan, SUV, Hatchback,...).
-* **Chi tiết xe:** Xem hình ảnh sắc nét, thông số kỹ thuật chi tiết, đánh giá và giá lăn bánh dự tính.
-* **Tương tác:** Thêm xe vào danh sách yêu thích (Wishlist).
-* **Giao dịch:** Đặt lịch lái thử hoặc liên hệ trực tiếp với tư vấn viên.
+* **Xác thực người dùng:** Đăng nhập, Đăng ký, Quản lý hồ sơ cá nhân.
+* **Khám phá xe Honda:** Xem danh mục các dòng xe mới nhất, xe bán chạy (Vision, SH, Air Blade, Winner X, Wave Alpha...).
+* **Phân loại & Tìm kiếm:** Lọc xe theo danh mục (Xe tay ga, Xe số, Xe côn tay, Xe phân khối lớn) và mức giá.
+* **Chi tiết xe:** Xem hình ảnh xe, thông số kỹ thuật chi tiết, các phiên bản màu sắc và tính giá lăn bánh dự kiến.
+* **Dịch vụ tiện ích:** Đặt lịch lái thử xe mới, đặt lịch bảo dưỡng/sửa chữa tại HEAD, lưu xe vào danh sách yêu thích.
 
-### Dành cho Quản trị viên (Admin - Nếu có)
-* Quản lý danh sách xe (Thêm, Sửa, Xóa).
-* Quản lý danh sách người dùng.
-* Xem thống kê lượt đặt lịch / liên hệ.
+### Dành cho Quản trị viên/Đại lý (Admin/HEAD - Nếu có)
+* Quản lý danh mục xe, phiên bản, màu sắc và giá cả (Thêm, Sửa, Xóa).
+* Quản lý lịch hẹn lái thử và lịch bảo dưỡng của khách hàng.
+* Quản lý thông tin khuyến mãi và tin tức.
 
 ---
 
@@ -36,7 +35,7 @@
 * **Frontend:** Flutter, Dart.
 * **IDE:** Android Studio / Visual Studio Code.
 * **State Management:** Provider / GetX / BLoC *(Nhóm cập nhật lại theo công cụ thực tế sử dụng)*.
-* **Backend/Database:** Firebase (Authentication, Firestore, Storage) / RESTful API *(Nhóm cập nhật lại theo công cụ thực tế sử dụng)*.
+* **Backend/Database:** Firebase (Firestore, Authentication, Storage) / RESTful API *(Nhóm cập nhật lại theo công cụ thực tế sử dụng)*.
 
 ---
 
