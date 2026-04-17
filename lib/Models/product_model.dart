@@ -10,11 +10,14 @@ class ProductModel {
   final String price;
   final String imageUrl;
   final List<Color> colors;
+  final int stock;
+  final int sold;
 
   ProductModel({
     required this.id, required this.name, required this.category,
     required this.year, required this.desc, required this.price,
-    required this.imageUrl, required this.colors
+    required this.imageUrl, required this.colors,
+    required this.stock, required this.sold,
   });
 
   factory ProductModel.fromFirestore(DocumentSnapshot doc) {
@@ -28,12 +31,14 @@ class ProductModel {
     return ProductModel(
       id: doc.id,
       name: data['name'] ?? '',
-      category: data['category'] ?? '',
-      year: data['year'] ?? '',
+      category: data['category'] ?? 'Scooter',
+      year: data['year'] ?? '2024',
       desc: data['desc'] ?? '',
-      price: data['price'] ?? '',
+      price: data['price'] ?? '0 VNĐ',
       imageUrl: data['imageUrl'] ?? '',
       colors: dsMau,
+      stock: data['stock'] ?? 0,
+      sold: data['sold'] ?? 0,
     );
   }
 
@@ -42,6 +47,7 @@ class ProductModel {
       'name': name, 'category': category, 'year': year,
       'desc': desc, 'price': price, 'imageUrl': imageUrl,
       'colors': colors.map((c) => c.value).toList(),
+      'stock': stock, 'sold': sold,
     };
   }
 }
