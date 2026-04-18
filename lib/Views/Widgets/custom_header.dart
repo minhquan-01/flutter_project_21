@@ -1,137 +1,106 @@
 import 'package:flutter/material.dart';
-import '../../Controllers/auth_controller.dart';
-import '../auth_view.dart';
-import '../admin_view.dart'; // Nạp trang Admin vào để chuyển tới
-import '../products_view.dart'; // Nạp trang Sản phẩm vào để chuyển tới
+import '../products_view.dart';
+// Nếu bạn có file trang chủ (home_view.dart) thì import thêm ở đây nhé!
 
 class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   final String activeTab;
 
-  const CustomHeader({super.key, required this.activeTab});
+  // Nhận biết xem người dùng đang ở trang nào (mặc định là products)
+  const CustomHeader({super.key, this.activeTab = 'products'});
 
   @override
-  Size get preferredSize => const Size.fromHeight(70);
+  Size get preferredSize => const Size.fromHeight(80);
 
   @override
   Widget build(BuildContext context) {
-    bool isDesktop = MediaQuery.of(context).size.width > 700;
-
-    return ListenableBuilder(
-        listenable: AuthController.instance,
-        builder: (context, _) {
-          final auth = AuthController.instance;
-
-          return AppBar(
-            backgroundColor: Colors.white,
-            elevation: 1,
-            toolbarHeight: 70,
-            automaticallyImplyLeading: false,
-            titleSpacing: isDesktop ? 40 : 15, // Căn lề tổng thể
-
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // 1. CỤM BÊN TRÁI: Dùng Expanded ép Logo sát lề trái
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFFCC0000),
-                          borderRadius: BorderRadius.circular(8)
-                      ),
-                      child: const Text(
-                          'HONDA',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1)
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 2. CỤM Ở GIỮA: Menu chữ (Tự động nằm chính giữa màn hình)
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min, // Quan trọng: Bắt nó gom gọn lại ở giữa
-                    children: [
-                      _buildNavText(context, 'Trang chủ', 'home'),
-                      _buildNavText(context, 'Sản phẩm', 'products'),
-                      _buildNavText(context, 'Liên hệ', 'contact'),
-
-                      if (auth.isAdmin) ...[
-                        _buildNavText(context, 'Bảng điều khiển', 'dashboard'),
-                        _buildNavText(context, 'Quản trị (Admin)', 'admin'),
-                      ],
-                    ],
-                  ),
-                ),
-
-                // 3. CỤM BÊN PHẢI: Dùng Expanded ép Icon sát lề phải
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black87), onPressed: () {}),
-                        const SizedBox(width: 5),
-                        IconButton(
-                          icon: Icon(
-                              auth.isLoggedIn ? Icons.logout : Icons.person_outline,
-                              color: auth.isLoggedIn ? const Color(0xFFCC0000) : Colors.black87
-                          ),
-                          onPressed: () {
-                            if (auth.isLoggedIn) {
-                              auth.logout();
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã đăng xuất')));
-                            } else {
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthView()));
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+    return Container(
+      height: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // 1. LOGO HONDA
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFCC0000),
+              borderRadius: BorderRadius.circular(5),
             ),
-          );
-        }
+            child: const Text(
+              'HONDA',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1),
+            ),
+          ),
+
+          // 2. THANH MENU (Trang chủ - Sản phẩm - Liên hệ)
+          Row(
+            children: [
+              _navItem(context, 'Trang chủ', 'home'),
+              const SizedBox(width: 40),
+              _navItem(context, 'Sản phẩm', 'products'),
+              const SizedBox(width: 40),
+              _navItem(context, 'Liên hệ', 'contact'),
+            ],
+          ),
+
+          // 3. ICONS BÊN PHẢI (Giỏ hàng & User)
+          Row(
+            children: [
+              IconButton(icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black87), onPressed: () {}),
+              const SizedBox(width: 15),
+              IconButton(icon: const Icon(Icons.person_outline, color: Colors.black87), onPressed: () {}),
+            ],
+          )
+        ],
+      ),
     );
   }
 
-  Widget _buildNavText(BuildContext context, String text, String tabId) {
-    bool isActive = activeTab == tabId;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: InkWell(
-        onTap: () {
-          // BƯỚC QUAN TRỌNG: Xử lý chuyển trang khi bấm nút
-          if (isActive) return; // Nếu đang ở chính trang đó rồi thì bấm không có tác dụng gì
+  // Hàm tạo từng nút bấm trên Menu
+  Widget _navItem(BuildContext context, String title, String tabId) {
+    bool isActive = activeTab == tabId; // Kiểm tra xem có đang ở trang này không
 
-          if (tabId == 'admin') {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminView()));
-          } else if (tabId == 'products') {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProductsView()));
-          }
-          // Sau này bạn làm thêm trang Trang chủ hay Liên hệ thì cứ viết thêm else if vào đây nhé!
-        },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-                text,
-                style: TextStyle(
-                    color: isActive ? const Color(0xFFCC0000) : Colors.grey[800],
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 15
-                )
+    return InkWell(
+      onTap: () {
+        if (isActive) return; // Nếu đang ở trang đó rồi thì bấm vào không có tác dụng gì cả
+
+        // Logic chuyển trang
+        if (tabId == 'products') {
+          // Dùng pushReplacement để chuyển trang mà không bị xếp chồng màn hình lên nhau gây nặng máy
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProductsView()));
+        } else if (tabId == 'contact') {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Liên hệ đang được hoàn thiện!'), duration: Duration(seconds: 1)));
+        } else if (tabId == 'home') {
+          // Gắn tạm thông báo nếu chưa code Trang Chủ
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Trang chủ đang được hoàn thiện!'), duration: Duration(seconds: 1)));
+        }
+      },
+      hoverColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: isActive ? const Color(0xFFCC0000) : Colors.black87,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+              fontSize: 16,
             ),
-            if (isActive)
-              Container(margin: const EdgeInsets.only(top: 5), height: 2, width: 25, color: const Color(0xFFCC0000)),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          // Cục gạch chân màu đỏ (chỉ hiện khi đang ở trang đó)
+          Container(
+            height: 2,
+            width: 25,
+            color: isActive ? const Color(0xFFCC0000) : Colors.transparent,
+          )
+        ],
       ),
     );
   }
