@@ -5,7 +5,7 @@ import '../Controllers/product_controller.dart';
 import '../Controllers/momo_controller.dart';
 import 'Widgets/custom_header.dart';
 import 'Widgets/custom_footer.dart';
-import 'order_history_view.dart';
+import 'payment_result_view.dart'; // ĐÃ NẠP TRANG XỬ LÝ TỰ ĐỘNG
 
 class CartView extends StatefulWidget {
   const CartView({super.key});
@@ -179,11 +179,27 @@ class _CartViewState extends State<CartView> {
               onPressed: () async {
                 try {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đang tạo đơn hàng...')));
-                  String orderId = await _controller.createOrder(items, total);
-                  await _momoController.createTestPayment(total, "Thanh toan don $orderId");
+
+                  // 1. Tạo đơn hàng với trạng thái "Chờ thanh toán" trên Firebase
+                  String firebaseOrderId = await _controller.createOrder(items, total);
+
+                  // 2. Tạo một mã riêng cho MoMo có tiền tố HONDA_
+                  String momoOrderId = "HONDA_$firebaseOrderId";
+
+                  // 3. Chuyển sẵn sang trang xử lý trung gian trước khi gọi MoMo
                   if (context.mounted) {
-                    _showConfirmDialog(orderId, items); // Truyền items vào dialog
+                    Navigator.pushReplacement(context, MaterialPageRoute(
+                        builder: (_) => PaymentResultView(
+                            firebaseOrderId: firebaseOrderId, // Để cập nhật Firebase
+                            momoOrderId: momoOrderId,         // Để tra cứu trên MoMo
+                            items: items
+                        )
+                    ));
                   }
+
+                  // 4. Mở cổng MoMo (Khách bị đẩy qua trình duyệt lúc này)
+                  await _momoController.createTestPayment(total, "Thanh toan don", momoOrderId);
+
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
                 }
@@ -193,55 +209,6 @@ class _CartViewState extends State<CartView> {
           ),
         ],
       ),
-    );
-  }
-
-  // ĐÃ SỬA: HỘP THOẠI XÁC NHẬN CÓ VÒNG LẶP TRỪ KHO
-  void _showConfirmDialog(String orderId, List<QueryDocumentSnapshot> items) {
-    showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Xác nhận thanh toán', style: TextStyle(color: Color(0xFFCC0000), fontWeight: FontWeight.bold)),
-          content: const Text('Hệ thống đang chờ bạn thanh toán trên cổng MoMo.\n\nBạn đã chuyển khoản thành công chưa?'),
-          actions: [
-            TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đơn hàng đã được lưu vào Lịch sử (Chờ thanh toán)')));
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const OrderHistoryView()));
-                },
-                child: const Text('Tôi sẽ thanh toán sau', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))
-            ),
-            ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                onPressed: () async {
-
-                  // 1. Cập nhật Firebase thành Đã thanh toán
-                  await _controller.updateOrderStatus(orderId, 'Đã thanh toán');
-
-                  // 2. Chạy vòng lặp TRỪ SỐ LƯỢNG KHO cho từng xe trong giỏ
-                  for (var doc in items) {
-                    String productId = doc['id'];
-                    int qty = doc['quantity'] ?? 1;
-                    await _controller.updateProductStock(productId, qty);
-                  }
-
-                  // 3. Xóa giỏ hàng
-                  await _controller.clearCart();
-
-                  if (mounted) {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thanh toán thành công!'), backgroundColor: Colors.green));
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const OrderHistoryView()));
-                  }
-                },
-                child: const Text('Đã thanh toán xong', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-            )
-          ],
-        )
     );
   }
 }

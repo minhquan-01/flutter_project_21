@@ -4,42 +4,39 @@ import 'package:crypto/crypto.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MoMoController {
+  // Bộ key bạn vừa cung cấp
   static const String partnerCode = "MOMO";
   static const String accessKey = "F8BBA842ECF85";
   static const String secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
 
   static const String momoEndpoint = "https://test-payment.momo.vn/v2/gateway/api/create";
+  static const String momoQueryEndpoint = "https://test-payment.momo.vn/v2/gateway/api/query";
 
-  Future<void> createTestPayment(int realAmount, String orderTitle) async {
-    // 1. Bỏ ép cứng 50k, sử dụng thẳng số tiền thật của đơn hàng
-    // Đảm bảo tiếng Việt KHÔNG DẤU để chống lỗi chữ ký
+  // 1. HÀM TẠO GIAO DỊCH VÀ MỞ TRÌNH DUYỆT MOMO
+  Future<void> createTestPayment(int realAmount, String orderTitle, String momoOrderId) async {
     String safeOrderInfo = "Thanh toan don hang Honda";
-
-    String orderId = "HONDA_${DateTime.now().millisecondsSinceEpoch}";
-    String requestId = orderId;
+    String requestId = momoOrderId;
     String redirectUrl = "https://momo.vn";
     String ipnUrl = "https://momo.vn";
-
     String requestType = "payWithATM";
     String extraData = "";
 
-    // 2. Gắn biến realAmount vào chuỗi tạo chữ ký
-    String rawSignature = "accessKey=$accessKey&amount=$realAmount&extraData=$extraData&ipnUrl=$ipnUrl&orderId=$orderId&orderInfo=$safeOrderInfo&partnerCode=$partnerCode&redirectUrl=$redirectUrl&requestId=$requestId&requestType=$requestType";
+    // Nối chuỗi để tạo chữ ký (Tuyệt đối không đổi thứ tự)
+    String rawSignature = "accessKey=$accessKey&amount=$realAmount&extraData=$extraData&ipnUrl=$ipnUrl&orderId=$momoOrderId&orderInfo=$safeOrderInfo&partnerCode=$partnerCode&redirectUrl=$redirectUrl&requestId=$requestId&requestType=$requestType";
 
-    // 3. Mã hóa bằng HMAC_SHA256
+    // Mã hóa bảo mật HMAC_SHA256
     var bytes = utf8.encode(rawSignature);
     var hmacSha256 = Hmac(sha256, utf8.encode(secretKey));
-    var digest = hmacSha256.convert(bytes);
-    String signature = digest.toString();
+    String signature = hmacSha256.convert(bytes).toString();
 
-    // 4. JSON gửi đi (Sử dụng realAmount)
+    // Body JSON gửi đi
     Map<String, dynamic> requestBody = {
       "partnerCode": partnerCode,
       "partnerName": "Honda Showroom",
       "storeId": "HondaStore",
       "requestId": requestId,
-      "amount": realAmount, // Đã đổi thành số tiền thật
-      "orderId": orderId,
+      "amount": realAmount,
+      "orderId": momoOrderId,
       "orderInfo": safeOrderInfo,
       "redirectUrl": redirectUrl,
       "ipnUrl": ipnUrl,
@@ -52,30 +49,66 @@ class MoMoController {
 
     try {
       final response = await http.post(
-        Uri.parse(momoEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(requestBody),
+          Uri.parse(momoEndpoint),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(requestBody)
       );
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
-
         if (data['resultCode'] == 0) {
-          String payUrl = data['payUrl'];
-          if (await canLaunchUrl(Uri.parse(payUrl))) {
-            await launchUrl(Uri.parse(payUrl), mode: LaunchMode.externalApplication);
+          if (await canLaunchUrl(Uri.parse(data['payUrl']))) {
+            await launchUrl(Uri.parse(data['payUrl']), mode: LaunchMode.externalApplication);
           } else {
-            throw "Lỗi: Không thể mở trình duyệt điện thoại.";
+            throw "Không thể mở trình duyệt điện thoại.";
           }
         } else {
-          throw "Lỗi MoMo từ chối: ${data['message']}";
+          throw "MoMo từ chối: ${data['message']}";
         }
       } else {
-        var errorData = jsonDecode(response.body);
-        throw "Lỗi MoMo 400: ${errorData['message'] ?? 'Dữ liệu không hợp lệ'}";
+        throw "Lỗi Server MoMo 400";
       }
     } catch (e) {
       throw Exception("$e");
+    }
+  }
+
+  // 2. HÀM KIỂM TRA TRẠNG THÁI GIAO DỊCH THỰC TẾ
+  Future<bool> checkPaymentStatus(String momoOrderId) async {
+    String requestId = momoOrderId;
+    // Cấu trúc chữ ký riêng cho API Query (Kiểm tra)
+    String rawSignature = "accessKey=$accessKey&orderId=$momoOrderId&partnerCode=$partnerCode&requestId=$requestId";
+
+    var bytes = utf8.encode(rawSignature);
+    var hmacSha256 = Hmac(sha256, utf8.encode(secretKey));
+    String signature = hmacSha256.convert(bytes).toString();
+
+    Map<String, dynamic> requestBody = {
+      "partnerCode": partnerCode,
+      "requestId": requestId,
+      "orderId": momoOrderId,
+      "signature": signature,
+      "lang": "vi"
+    };
+
+    try {
+      final response = await http.post(
+          Uri.parse(momoQueryEndpoint),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(requestBody)
+      );
+
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+        // resultCode == 0 nghĩa là khách đã chuyển tiền thành công
+        if (data['resultCode'] == 0) {
+          return true;
+        }
+      }
+      // Nếu là thẻ khoá, thẻ không đủ tiền, hủy giao dịch... đều sẽ bị bắt và trả về false
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 }
