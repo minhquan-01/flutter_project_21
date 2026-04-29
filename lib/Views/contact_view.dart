@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../Controllers/auth_controller.dart';
 import '../Controllers/contact_controller.dart';
 import '../Models/contact_model.dart';
 import 'Widgets/custom_header.dart';
 import 'Widgets/custom_footer.dart';
+import 'Widgets/chat_box.dart';
 
 class ContactScreen extends StatefulWidget {
   const ContactScreen({super.key});
@@ -45,12 +48,7 @@ class _ContactScreenState extends State<ContactScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showChatDialog(context),
-        backgroundColor: const Color(0xFFCC0000),
-        icon: const Icon(Icons.support_agent, color: Colors.white),
-        label: const Text("Chat với CSKH", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
+      floatingActionButton: const ChatBox(),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -163,6 +161,7 @@ class _ContactScreenState extends State<ContactScreen> {
                         ? null
                         : () async {
                       final req = ContactRequest(
+                        userId: AuthController.instance.isLoggedIn ? FirebaseAuth.instance.currentUser?.uid : null,
                         name: _nameController.text,
                         email: _emailController.text,
                         phone: _phoneController.text,
@@ -246,74 +245,6 @@ class _ContactScreenState extends State<ContactScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showChatDialog(BuildContext context) {
-    final chatController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          width: 380, height: 480,
-          child: Column(
-            children: [
-              Container(
-                color: const Color(0xFFCC0000), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                child: Row(
-                  children: [
-                    const Icon(Icons.support_agent, color: Colors.white, size: 28), const SizedBox(width: 10),
-                    const Text("CSKH Trực tuyến", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                    const Spacer(),
-                    InkWell(onTap: () => Navigator.pop(context), child: const Icon(Icons.close, color: Colors.white))
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  color: Colors.grey.shade100, padding: const EdgeInsets.all(20), width: double.infinity,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.only(topRight: Radius.circular(20), bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20))),
-                        child: const Text("Chào bạn! Honda Showroom có thể giúp gì cho bạn hôm nay?", style: TextStyle(color: Colors.black87, height: 1.5, fontSize: 15)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Container(
-                color: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: chatController,
-                        decoration: InputDecoration(hintText: "Nhập tin nhắn...", border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none), filled: true, fillColor: Colors.grey.shade200, contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    CircleAvatar(
-                      backgroundColor: const Color(0xFFCC0000), radius: 24,
-                      child: IconButton(
-                        icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tin nhắn đã được gửi tới tư vấn viên!'), backgroundColor: Colors.green));
-                        },
-                      ),
-                    )
-                  ],
-                ),
-              )
-            ],
-          ),
-        ),
       ),
     );
   }

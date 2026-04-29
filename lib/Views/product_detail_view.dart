@@ -5,6 +5,7 @@ import '../Controllers/product_controller.dart';
 import '../Models/product_model.dart';
 import 'Widgets/custom_header.dart';
 import 'Widgets/custom_footer.dart';
+import 'Widgets/chat_box.dart';
 
 class ProductDetailView extends StatefulWidget {
   final ProductModel product;
@@ -25,6 +26,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
+      floatingActionButton: const ChatBox(),
       appBar: const CustomHeader(activeTab: 'products'),
       body: SingleChildScrollView(
         child: Column(
@@ -67,7 +69,7 @@ class _ProductDetailViewState extends State<ProductDetailView> {
             const SizedBox(height: 100),
             _buildRelatedProductsSection(isMobile),
             const SizedBox(height: 80),
-            const CustomFooter(),
+            CustomFooter(),
           ],
         ),
       ),

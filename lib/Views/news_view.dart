@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../Controllers/auth_controller.dart';
 import 'Widgets/custom_header.dart';
 import 'Widgets/custom_footer.dart';
+import 'Widgets/chat_box.dart';
 import 'news_detail_view.dart';
 
 class NewsView extends StatefulWidget {
@@ -38,6 +39,7 @@ class _NewsViewState extends State<NewsView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
+      floatingActionButton: const ChatBox(),
       appBar: const CustomHeader(activeTab: 'news'),
       drawer: CustomHeader.buildDrawer(context, 'news'),
       body: SingleChildScrollView(

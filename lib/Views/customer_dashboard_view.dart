@@ -6,6 +6,9 @@ import '../Controllers/auth_controller.dart';
 import '../Controllers/product_controller.dart';
 import 'Widgets/custom_header.dart';
 import 'Widgets/custom_footer.dart';
+import '../Controllers/maintenance_controller.dart';
+import 'Widgets/chat_box.dart';
+import 'contact_view.dart';
 
 class CustomerDashboardView extends StatefulWidget {
   const CustomerDashboardView({super.key});
@@ -15,6 +18,7 @@ class CustomerDashboardView extends StatefulWidget {
 }
 
 class _CustomerDashboardViewState extends State<CustomerDashboardView> {
+  final MaintenanceController _maintenanceController = MaintenanceController();
   final ProductController _productController = ProductController();
   final formatter = NumberFormat.currency(locale: 'vi_VN', symbol: 'VNĐ');
 
@@ -28,6 +32,7 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
       builder: (context, _) {
         return Scaffold(
           backgroundColor: const Color(0xFFF4F6F8),
+          floatingActionButton: const ChatBox(),
           appBar: const CustomHeader(activeTab: 'dashboard'),
           drawer: CustomHeader.buildDrawer(context, 'dashboard'),
           body: SingleChildScrollView(
@@ -73,7 +78,7 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                   ),
                 ),
                 const SizedBox(height: 80),
-                const CustomFooter(),
+                CustomFooter(),
               ],
             ),
           ),
@@ -304,9 +309,19 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: localIsSaving ? null : () async {
+                    final name = nameCtrl.text.trim();
+                    final phone = phoneCtrl.text.trim();
+
+                    if (name.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Vui lòng nhập họ tên'), backgroundColor: Colors.orange),
+                      );
+                      return;
+                    }
+
                     setStateSTB(() => localIsSaving = true);
                     try {
-                      await auth.updateProfile(name: nameCtrl.text, phone: phoneCtrl.text);
+                      await auth.updateProfile(name: name, phone: phone);
                       if (context.mounted) {
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cập nhật thành công!'), backgroundColor: Colors.green));
@@ -315,8 +330,9 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
                       }
+                    } finally {
+                      if (mounted) setStateSTB(() => localIsSaving = false);
                     }
-                    setStateSTB(() => localIsSaving = false);
                   },
                   child: localIsSaving 
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
@@ -466,47 +482,64 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
           _buildCardHeader(Icons.build_outlined, 'Lịch Bảo Dưỡng', 'Kế hoạch chăm sóc xe', color: Colors.blue),
           const Divider(height: 1, color: Colors.black12),
           StreamBuilder<QuerySnapshot>(
-            stream: _productController.getUserOrders(),
+            stream: _maintenanceController.getMySchedules(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: Colors.blue)));
               }
 
-              List<Widget> maintenanceWidgets = [];
-              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                // Tạo lịch bảo dưỡng giả dựa trên đơn hàng thực tế
-                for (var doc in snapshot.data!.docs) {
-                  final order = doc.data() as Map<String, dynamic>;
-                  final items = order['items'] as List<dynamic>? ?? [];
-                  final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic> : null;
-                  if (firstItem != null) {
-                    maintenanceWidgets.add(
-                        _maintenanceItem('Thay Dầu & Kiểm Tra', firstItem['name'], 'Định kỳ 1000km', 'Sắp đến hạn', Colors.red)
-                    );
-                    maintenanceWidgets.add(const SizedBox(height: 15));
-                  }
-                }
-              }
-
-              if (maintenanceWidgets.isEmpty) {
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(40),
-                  child: Center(child: Text('Chưa có lịch bảo dưỡng.', style: TextStyle(color: Colors.grey))),
+                  child: Center(child: Text('Bạn chưa có lịch bảo dưỡng nào.', style: TextStyle(color: Colors.grey))),
                 );
               }
+
+              final schedules = snapshot.data!.docs.toList();
+              // Sắp xếp theo ngày tăng dần trên client
+              schedules.sort((a, b) {
+                Timestamp t1 = (a.data() as Map<String, dynamic>)['scheduledDate'];
+                Timestamp t2 = (b.data() as Map<String, dynamic>)['scheduledDate'];
+                return t1.compareTo(t2);
+              });
 
               return Padding(
                 padding: const EdgeInsets.all(25),
                 child: Column(
                   children: [
-                    ...maintenanceWidgets,
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: schedules.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 15),
+                      itemBuilder: (context, index) {
+                        final data = schedules[index].data() as Map<String, dynamic>;
+                        DateTime date = (data['scheduledDate'] as Timestamp).toDate();
+                        String dateStr = DateFormat('dd/MM/yyyy').format(date);
+                        
+                        // Tính số ngày còn lại
+                        int daysLeft = date.difference(DateTime.now()).inDays + 1;
+                        String countdown = daysLeft > 0 ? "Còn $daysLeft ngày" : (daysLeft == 0 ? "Hôm nay" : "Đã quá hạn");
+                        Color badgeColor = daysLeft > 3 ? Colors.green : (daysLeft >= 0 ? Colors.orange : Colors.red);
+
+                        return _maintenanceItem(
+                          data['note'] ?? 'Bảo dưỡng xe',
+                          data['bikeName'] ?? 'Xe của tôi',
+                          dateStr,
+                          countdown,
+                          badgeColor,
+                        );
+                      },
+                    ),
                     const SizedBox(height: 25),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[600], padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                        onPressed: () {},
-                        child: const Text('Đặt Lịch Hẹn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ContactScreen()));
+                        },
+                        child: const Text('Gửi Yêu Cầu Bảo Dưỡng', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                     )
                   ],

@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AuthController extends ChangeNotifier {
   static final AuthController instance = AuthController._internal();
@@ -87,7 +89,15 @@ class AuthController extends ChangeNotifier {
     if (phone != null) updates['phone'] = phone;
     if (avatarUrl != null) updates['avatarUrl'] = avatarUrl;
 
+    // Cập nhật local trước (Optimistic UI) để người dùng thấy thay đổi ngay lập tức
+    if (userData != null) {
+      userData!.addAll(updates);
+      notifyListeners();
+    }
+
     await _db.collection('users').doc(uid).set(updates, SetOptions(merge: true));
+    
+    // Đồng bộ lại với server để đảm bảo dữ liệu chính xác
     await _fetchUserData(uid);
   }
 
@@ -97,6 +107,7 @@ class AuthController extends ChangeNotifier {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: kIsWeb, // Chỉ lấy bytes trên Web để tiết kiệm RAM trên Mobile
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -106,12 +117,13 @@ class AuthController extends ChangeNotifier {
 
         final storageRef = FirebaseStorage.instance.ref().child('avatars').child('$uid.jpg');
         
-        // Hỗ trợ cả Web (bytes) và Mobile (path)
-        if (file.bytes != null) {
+        // Xử lý upload theo từng nền tảng
+        if (kIsWeb) {
+          if (file.bytes == null) throw Exception("Không thể đọc dữ liệu ảnh.");
           await storageRef.putData(file.bytes!);
         } else {
-          // Tránh bị kẹt nếu bytes null trên Web (có thể xảy ra ở một số trình duyệt)
-          return;
+          if (file.path == null) throw Exception("Không tìm thấy đường dẫn ảnh.");
+          await storageRef.putFile(io.File(file.path!));
         }
 
         final url = await storageRef.getDownloadURL();

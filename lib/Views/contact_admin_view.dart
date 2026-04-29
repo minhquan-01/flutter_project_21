@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../Controllers/maintenance_controller.dart';
 
 class ContactAdminManager extends StatelessWidget {
   const ContactAdminManager({super.key});
@@ -57,6 +58,8 @@ class ContactAdminManager extends StatelessWidget {
       formattedDate = rawDate;
     }
 
+    String? userId = data['userId'];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 15),
       elevation: 0,
@@ -70,7 +73,6 @@ class ContactAdminManager extends StatelessWidget {
           backgroundColor: isRead ? Colors.grey[200] : Colors.red[50],
           child: Icon(Icons.person, color: isRead ? Colors.grey : const Color(0xFFCC0000)),
         ),
-        // SỬA Ở ĐÂY: Dùng Wrap/Expanded để chữ tự rớt dòng, không đâm vỡ màn hình
         title: Wrap(
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 10,
@@ -105,7 +107,6 @@ class ContactAdminManager extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // BỌC EMAIL VÀO ROW VÀ EXPANDED ĐỂ TỰ ĐỘNG CẮT CHỮ NẾU DÀI
                 Row(
                   children: [
                     const Icon(Icons.email_outlined, size: 16, color: Colors.grey),
@@ -131,20 +132,106 @@ class ContactAdminManager extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(data['message'] ?? '', style: const TextStyle(fontSize: 15, height: 1.5)),
                 const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () {
-                      FirebaseFirestore.instance.collection('contacts').doc(docId).delete();
-                    },
-                    icon: const Icon(Icons.delete, color: Colors.red, size: 18),
-                    label: const Text('Xóa tin nhắn', style: TextStyle(color: Colors.red)),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (userId != null)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                        onPressed: () => _showScheduleDialog(context, userId, data['name'] ?? ''),
+                        icon: const Icon(Icons.event, size: 18),
+                        label: const Text('Lên lịch bảo dưỡng'),
+                      ),
+                    TextButton.icon(
+                      onPressed: () {
+                        FirebaseFirestore.instance.collection('contacts').doc(docId).delete();
+                      },
+                      icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                      label: const Text('Xóa tin nhắn', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
                 )
               ],
             ),
           )
         ],
+      ),
+    );
+  }
+
+  void _showScheduleDialog(BuildContext context, String userId, String userName) {
+    final bikeNameController = TextEditingController();
+    final noteController = TextEditingController();
+    DateTime? selectedDate;
+    final MaintenanceController _maintenanceController = MaintenanceController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateSB) => AlertDialog(
+          title: Text('Lên lịch bảo dưỡng cho $userName'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: bikeNameController,
+                decoration: const InputDecoration(labelText: 'Tên xe / Biển số', hintText: 'VD: Honda SH - 29A1-12345'),
+              ),
+              const SizedBox(height: 15),
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now().add(const Duration(days: 1)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    setStateSB(() => selectedDate = date);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 18),
+                      const SizedBox(width: 10),
+                      Text(selectedDate == null ? 'Chọn ngày bảo dưỡng' : DateFormat('dd/MM/yyyy').format(selectedDate!)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: noteController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Nội dung bảo dưỡng', hintText: 'VD: Thay dầu, kiểm tra phanh...'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            ElevatedButton(
+              onPressed: () async {
+                if (bikeNameController.text.isEmpty || selectedDate == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập tên xe và ngày hẹn!')));
+                  return;
+                }
+                await _maintenanceController.scheduleMaintenance(
+                  userId: userId,
+                  bikeName: bikeNameController.text,
+                  serviceType: 'Bảo dưỡng / Sửa chữa',
+                  scheduledDate: selectedDate!,
+                  note: noteController.text,
+                );
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã tạo lịch bảo dưỡng thành công!'), backgroundColor: Colors.green));
+              },
+              child: const Text('Lưu lịch hẹn'),
+            ),
+          ],
+        ),
       ),
     );
   }

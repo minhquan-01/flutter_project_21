@@ -4,6 +4,7 @@ import '../Models/product_model.dart';
 import 'product_detail_view.dart';
 import 'Widgets/custom_header.dart';
 import 'Widgets/custom_footer.dart';
+import 'Widgets/chat_box.dart';
 
 class ProductsView extends StatefulWidget {
   const ProductsView({super.key});
@@ -28,11 +29,7 @@ class _ProductsViewState extends State<ProductsView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFCC0000),
-        onPressed: () {},
-        child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-      ),
+      floatingActionButton: const ChatBox(),
       appBar: const CustomHeader(activeTab: 'products'),
       body: ListenableBuilder(
         listenable: _controller,
@@ -148,7 +145,7 @@ class _ProductsViewState extends State<ProductsView> {
                 ),
 
                 const SizedBox(height: 60),
-                const CustomFooter(),
+                CustomFooter(),
               ],
             ),
           );
