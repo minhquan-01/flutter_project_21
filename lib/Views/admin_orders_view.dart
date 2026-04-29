@@ -18,23 +18,27 @@ class _AdminOrdersViewState extends State<AdminOrdersView> {
   Widget build(BuildContext context) {
     bool isMobile = MediaQuery.of(context).size.width < 850;
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.all(isMobile ? 20 : 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Quản lý Đơn hàng', style: TextStyle(fontSize: isMobile ? 24 : 32, fontWeight: FontWeight.bold, color: const Color(0xFF1A1A24))),
-                const SizedBox(height: 5),
-                Text('Theo dõi và quản lý các giao dịch thanh toán', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                const SizedBox(height: 30),
-                _buildOrdersList(isMobile),
-              ],
+    // ĐÃ SỬA LỖI: Bọc Scaffold ở ngoài cùng để cung cấp Material Design
+    return Scaffold(
+      backgroundColor: Colors.transparent, // Giữ nền trong suốt để tệp với AdminView
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(isMobile ? 20 : 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Quản lý Đơn hàng', style: TextStyle(fontSize: isMobile ? 24 : 32, fontWeight: FontWeight.bold, color: const Color(0xFF1A1A24))),
+                  const SizedBox(height: 5),
+                  Text('Theo dõi và quản lý các giao dịch thanh toán', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                  const SizedBox(height: 30),
+                  _buildOrdersList(isMobile),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -7,7 +7,6 @@ import '../contact_view.dart';
 import '../customer_dashboard_view.dart';
 import '../news_view.dart';
 import '../cart_view.dart';
-import '../admin_orders_view.dart';
 
 class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   final String activeTab;
@@ -51,11 +50,9 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
               if (auth.isLoggedIn && !auth.isAdmin)
                 _buildDrawerItem(context, Icons.dashboard_outlined, 'Bảng điều khiển', 'dashboard', activeTab),
 
-              if (auth.isAdmin) ...[
+              if (auth.isAdmin)
                 _buildDrawerItem(context, Icons.admin_panel_settings_outlined, 'Quản trị', 'admin', activeTab),
-                _buildDrawerItem(context, Icons.shopping_bag_outlined, 'Đơn hàng', 'admin_orders', activeTab),
-              ],
-              
+
               const Spacer(),
               const Divider(),
               ListTile(
@@ -92,8 +89,6 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
 
         if (tabId == 'admin') {
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminView()));
-        } else if (tabId == 'admin_orders') {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminOrdersView()));
         } else if (tabId == 'contact') {
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ContactScreen()));
         } else if (tabId == 'dashboard') {
@@ -155,10 +150,8 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
                             if (auth.isLoggedIn && !auth.isAdmin)
                               _buildNavText(context, 'Bảng điều khiển', 'dashboard'),
 
-                            if (auth.isAdmin) ...[
+                            if (auth.isAdmin)
                               _buildNavText(context, 'Quản trị (Admin)', 'admin'),
-                              _buildNavText(context, 'Đơn hàng', 'admin_orders'),
-                            ],
                           ],
                         ),
                       ),
@@ -217,7 +210,6 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
         onTap: () {
           if (isActive) return;
           if (tabId == 'admin') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminView()));
-          else if (tabId == 'admin_orders') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminOrdersView()));
           else if (tabId == 'contact') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ContactScreen()));
           else if (tabId == 'dashboard') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerDashboardView()));
           else if (tabId == 'news') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const NewsView()));

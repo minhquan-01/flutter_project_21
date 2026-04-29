@@ -175,37 +175,6 @@ class ProductController extends ChangeNotifier {
     await fetchProducts();
   }
 
-  // ==========================================
-  // --- LOGIC YÊU THÍCH (WISHLIST) ---
-  // ==========================================
-
-  Stream<QuerySnapshot> getWishlist() {
-    final user = FirebaseAuth.instance.currentUser;
-    return _db.collection('wishlist').doc(user?.uid).collection('items').snapshots();
-  }
-
-  Future<void> toggleFavorite(ProductModel product) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final docRef = _db.collection('wishlist').doc(user.uid).collection('items').doc(product.id);
-    final doc = await docRef.get();
-
-    if (doc.exists) {
-      await docRef.delete();
-    } else {
-      await docRef.set({
-        'id': product.id,
-        'name': product.name,
-        'price': product.price,
-        'imageUrl': product.imageUrl,
-        'category': product.category,
-        'addedAt': Timestamp.now(),
-      });
-    }
-    notifyListeners();
-  }
-
   // --- LOGIC VOUCHER ---
   Future<Map<String, dynamic>?> applyCoupon(String code) async {
     try {
