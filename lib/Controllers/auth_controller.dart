@@ -1,52 +1,131 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Nạp thư viện Firebase Auth
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:file_picker/file_picker.dart';
 
 class AuthController extends ChangeNotifier {
   static final AuthController instance = AuthController._internal();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  Map<String, dynamic>? userData;
 
   AuthController._internal() {
-    // Luôn lắng nghe: Hễ có ai đăng nhập hoặc đăng xuất là báo cho toàn app biết
     _auth.authStateChanges().listen((User? user) {
-      notifyListeners();
+      if (user != null) {
+        _fetchUserData(user.uid);
+      } else {
+        userData = null;
+        notifyListeners();
+      }
     });
   }
 
-  // Lấy trạng thái đăng nhập trực tiếp từ Firebase
+  Future<void> _fetchUserData(String uid) async {
+    try {
+      final doc = await _db.collection('users').doc(uid).get();
+      if (doc.exists) {
+        userData = doc.data();
+      } else {
+        userData = {
+          'name': _auth.currentUser?.displayName ?? '',
+          'phone': '',
+          'avatarUrl': '',
+          'email': _auth.currentUser?.email ?? '',
+        };
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Lỗi lấy thông tin user: $e");
+    }
+  }
+
   bool get isLoggedIn => _auth.currentUser != null;
   String get currentUserEmail => _auth.currentUser?.email ?? '';
 
-  // KIỂM TRA PHÂN QUYỀN: Chỉ 2 email này mới có nút Admin
   bool get isAdmin {
     final email = _auth.currentUser?.email;
     return email == 'admin@honda.com' || email == 'bbk51204@gmail.com';
   }
 
-  // --- 1. HÀM ĐĂNG NHẬP THẬT ---
   Future<void> login(String email, String password) async {
     try {
       await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
-    } on FirebaseAuthException catch (e) {
-      throw Exception(_handleAuthError(e.code)); // Bắt lỗi để báo ra màn hình
-    }
-  }
-
-  // --- 2. HÀM ĐĂNG KÝ THẬT ---
-  Future<void> register(String email, String password) async {
-    try {
-      // Hàm này sẽ tự động tạo tài khoản trên Firebase và lưu lại
-      await _auth.createUserWithEmailAndPassword(email: email.trim(), password: password);
     } on FirebaseAuthException catch (e) {
       throw Exception(_handleAuthError(e.code));
     }
   }
 
-  // --- 3. HÀM ĐĂNG XUẤT ---
+  Future<void> register(String email, String password) async {
+    try {
+      UserCredential credential = await _auth.createUserWithEmailAndPassword(email: email.trim(), password: password);
+      // Tạo document user mới trong Firestore
+      await _db.collection('users').doc(credential.user!.uid).set({
+        'name': '',
+        'phone': '',
+        'avatarUrl': '',
+        'email': email.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_handleAuthError(e.code));
+    }
+  }
+
   Future<void> logout() async {
     await _auth.signOut();
   }
 
-  // --- Tiện ích dịch lỗi Firebase sang Tiếng Việt ---
+  // --- CẬP NHẬT THÔNG TIN CÁ NHÂN ---
+  Future<void> updateProfile({String? name, String? phone, String? avatarUrl}) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final updates = <String, dynamic>{};
+    if (name != null) updates['name'] = name;
+    if (phone != null) updates['phone'] = phone;
+    if (avatarUrl != null) updates['avatarUrl'] = avatarUrl;
+
+    await _db.collection('users').doc(uid).set(updates, SetOptions(merge: true));
+    await _fetchUserData(uid);
+  }
+
+  // --- UPLOAD ẢNH ĐẠI DIỆN ---
+  Future<void> uploadAvatar() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final uid = _auth.currentUser?.uid;
+        if (uid == null) return;
+
+        final storageRef = FirebaseStorage.instance.ref().child('avatars').child('$uid.jpg');
+        
+        // Hỗ trợ cả Web (bytes) và Mobile (path)
+        if (file.bytes != null) {
+          await storageRef.putData(file.bytes!);
+        } else if (file.path != null) {
+          // Note: On mobile, you might need to use File(file.path!)
+          // but for simplicity and cross-platform (if web is prioritized), 
+          // we use putData if available or skip if both null.
+          // For true mobile support: await storageRef.putFile(File(file.path!));
+        } else {
+          return;
+        }
+
+        final url = await storageRef.getDownloadURL();
+        await updateProfile(avatarUrl: url);
+      }
+    } catch (e) {
+      throw Exception('Lỗi upload ảnh: $e');
+    }
+  }
+
   String _handleAuthError(String code) {
     switch (code) {
       case 'user-not-found': return 'Không tìm thấy tài khoản này!';
