@@ -109,12 +109,8 @@ class AuthController extends ChangeNotifier {
         // Hỗ trợ cả Web (bytes) và Mobile (path)
         if (file.bytes != null) {
           await storageRef.putData(file.bytes!);
-        } else if (file.path != null) {
-          // Note: On mobile, you might need to use File(file.path!)
-          // but for simplicity and cross-platform (if web is prioritized), 
-          // we use putData if available or skip if both null.
-          // For true mobile support: await storageRef.putFile(File(file.path!));
         } else {
+          // Tránh bị kẹt nếu bytes null trên Web (có thể xảy ra ở một số trình duyệt)
           return;
         }
 
@@ -122,7 +118,8 @@ class AuthController extends ChangeNotifier {
         await updateProfile(avatarUrl: url);
       }
     } catch (e) {
-      throw Exception('Lỗi upload ảnh: $e');
+      debugPrint("Lỗi uploadAvatar: $e");
+      rethrow;
     }
   }
 

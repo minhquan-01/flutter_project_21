@@ -232,12 +232,16 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                           setStateSTB(() => localIsSaving = true);
                           try {
                             await auth.uploadAvatar();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tải ảnh lên thành công!'), backgroundColor: Colors.green));
+                            }
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
                             }
+                          } finally {
+                            if (mounted) setStateSTB(() => localIsSaving = false);
                           }
-                          setStateSTB(() => localIsSaving = false);
                         },
                         child: Column(
                           children: [
@@ -334,22 +338,53 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
         children: [
           _buildCardHeader(Icons.shopping_bag, 'Lịch Sử Mua Hàng', 'Danh sách đơn hàng của bạn'),
           const Divider(height: 1, color: Colors.black12),
-          ListView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(25),
-            children: [
-              _orderItem('Honda SH 160i', 'ORD-2024-001', '15/03/2024', 'Đen Nhám', '95.9 Tr VNĐ', 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=2070'),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(color: Colors.black12)),
-              _orderItem('Honda Winner X', 'ORD-2023-045', '08/11/2023', 'Đỏ Đua', '46.9 Tr VNĐ', 'https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?q=80&w=2070'),
-            ],
+          StreamBuilder<QuerySnapshot>(
+            stream: _productController.getUserOrders(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: Color(0xFFB70000))));
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: Text('Bạn chưa có đơn hàng nào.', style: TextStyle(color: Colors.grey))),
+                );
+              }
+
+              final orders = snapshot.data!.docs;
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(25),
+                itemCount: orders.length,
+                separatorBuilder: (_, __) => const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider(color: Colors.black12)),
+                itemBuilder: (context, index) {
+                  final order = orders[index].data() as Map<String, dynamic>;
+                  final items = order['items'] as List<dynamic>? ?? [];
+                  final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic> : null;
+                  
+                  // Nếu đơn hàng có nhiều xe, chỉ hiển thị xe đầu tiên kèm mô tả "+x xe khác"
+                  String title = firstItem?['name'] ?? 'Đơn hàng mới';
+                  if (items.length > 1) title += " + ${items.length - 1} sản phẩm";
+
+                  DateTime date = (order['createdAt'] as Timestamp).toDate();
+                  String dateStr = DateFormat('dd/MM/yyyy').format(date);
+                  String price = formatter.format(order['totalAmount'] ?? 0);
+                  String imgUrl = firstItem?['imageUrl'] ?? '';
+                  String status = order['status'] ?? 'Đang xử lý';
+
+                  return _orderItem(title, orders[index].id, dateStr, 'Tiêu chuẩn', price, imgUrl, status);
+                },
+              );
+            },
           )
         ],
       ),
     );
   }
 
-  Widget _orderItem(String name, String id, String date, String color, String price, String imgUrl) {
+  Widget _orderItem(String name, String id, String date, String color, String price, String imgUrl, String status) {
+    bool isSuccess = status == 'Đã thanh toán' || status == 'Đã nhận xe';
     return LayoutBuilder(builder: (context, constraints) {
       bool isSmall = constraints.maxWidth < 500;
       return Row(
@@ -367,8 +402,12 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(child: Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A1A24)))),
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(5)), child: const Text('Đã nhận xe', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))),
+                    Flexible(child: Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A1A24)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), 
+                      decoration: BoxDecoration(color: isSuccess ? Colors.green[50] : Colors.orange[50], borderRadius: BorderRadius.circular(5)), 
+                      child: Text(status, style: TextStyle(color: isSuccess ? Colors.green : Colors.orange, fontWeight: FontWeight.bold, fontSize: 12))
+                    ),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -380,12 +419,10 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                       Icon(Icons.calendar_today, size: 14, color: Colors.grey[500]),
                       const SizedBox(width: 5),
                       Text(date, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                      const Spacer(),
-                      Text('Màu: $color', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
                     ],
                   )
                 else
-                  Text('Ngày: $date • Màu: $color', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  Text('Ngày: $date', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
                 const SizedBox(height: 10),
                 Text(price, style: const TextStyle(color: Color(0xFFCC0000), fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 15),
@@ -393,7 +430,6 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _actionButton('Theo Dõi', Icons.local_shipping_outlined),
                     _actionButton('Chi Tiết', null),
                   ],
                 )
@@ -428,24 +464,54 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
         children: [
           _buildCardHeader(Icons.build_outlined, 'Lịch Bảo Dưỡng', 'Kế hoạch chăm sóc xe', color: Colors.blue),
           const Divider(height: 1, color: Colors.black12),
-          Padding(
-            padding: const EdgeInsets.all(25),
-            child: Column(
-              children: [
-                _maintenanceItem('Thay Dầu & Kiểm Tra Lọc Gió', 'Honda SH 160i', '01/05/2024', '15 ngày nữa', Colors.red),
-                const SizedBox(height: 15),
-                _maintenanceItem('Kiểm Tra Định Kỳ Lốp', 'Honda SH 160i', '10/06/2024', '55 ngày nữa', Colors.green),
-                const SizedBox(height: 25),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[600], padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                    onPressed: () {},
-                    child: const Text('Đặt Lịch Hẹn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                )
-              ],
-            ),
+          StreamBuilder<QuerySnapshot>(
+            stream: _productController.getUserOrders(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: Colors.blue)));
+              }
+
+              List<Widget> maintenanceWidgets = [];
+              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                // Tạo lịch bảo dưỡng giả dựa trên đơn hàng thực tế
+                for (var doc in snapshot.data!.docs) {
+                  final order = doc.data() as Map<String, dynamic>;
+                  final items = order['items'] as List<dynamic>? ?? [];
+                  final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic> : null;
+                  if (firstItem != null) {
+                    maintenanceWidgets.add(
+                        _maintenanceItem('Thay Dầu & Kiểm Tra', firstItem['name'], 'Định kỳ 1000km', 'Sắp đến hạn', Colors.red)
+                    );
+                    maintenanceWidgets.add(const SizedBox(height: 15));
+                  }
+                }
+              }
+
+              if (maintenanceWidgets.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: Text('Chưa có lịch bảo dưỡng.', style: TextStyle(color: Colors.grey))),
+                );
+              }
+
+              return Padding(
+                padding: const EdgeInsets.all(25),
+                child: Column(
+                  children: [
+                    ...maintenanceWidgets,
+                    const SizedBox(height: 25),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[600], padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        onPressed: () {},
+                        child: const Text('Đặt Lịch Hẹn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    )
+                  ],
+                ),
+              );
+            },
           )
         ],
       ),
@@ -481,22 +547,50 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
 
   // ==================== WIDGET: VOUCHER ====================
   Widget _buildVoucherWallet() {
+    final user = AuthController.instance.isLoggedIn ? FirebaseAuth.instance.currentUser : null;
+
     return Container(
       decoration: _cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildCardHeader(Icons.local_offer_outlined, 'Ví Voucher', 'Đang có 3 mã khả dụng', color: Colors.purple),
+          _buildCardHeader(Icons.local_offer_outlined, 'Ví Voucher', 'Mã giảm giá đã lưu', color: Colors.purple),
           const Divider(height: 1, color: Colors.black12),
-          Padding(
-            padding: const EdgeInsets.all(25),
-            child: Column(
-              children: [
-                _voucherItem('Phụ Kiện', 'Giảm 20% khi mua Phụ Kiện', 'HONDA20ACC', '30/04/2024', '20%'),
-                const SizedBox(height: 15),
-                _voucherItem('Dịch Vụ', 'Miễn phí thay dầu định kỳ', 'FREEOIL2024', '15/05/2024', '100%'),
-              ],
-            ),
+          StreamBuilder<QuerySnapshot>(
+            stream: user != null 
+                ? FirebaseFirestore.instance.collection('users').doc(user.uid).collection('saved_coupons').snapshots()
+                : Stream.empty(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: Colors.purple)));
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: Text('Ví Voucher của bạn đang trống.', style: TextStyle(color: Colors.grey))),
+                );
+              }
+
+              final coupons = snapshot.data!.docs;
+              return Padding(
+                padding: const EdgeInsets.all(25),
+                child: Column(
+                  children: coupons.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 15),
+                      child: _voucherItem(
+                        data['type'] ?? 'Mua xe', 
+                        data['title'] ?? 'Ưu đãi đặc biệt', 
+                        data['code'] ?? '---', 
+                        data['date'] ?? '---', 
+                        data['value'] ?? ''
+                      ),
+                    );
+                  }).toList(),
+                ),
+              );
+            },
           )
         ],
       ),
