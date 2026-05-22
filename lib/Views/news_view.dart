@@ -50,19 +50,60 @@ class _NewsViewState extends State<NewsView> {
 
             Padding(
               padding: EdgeInsets.symmetric(horizontal: paddingX),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildTabBar(isMobile),
-                  if (isAdmin)
-                    ElevatedButton.icon(
-                      onPressed: () => _selectedTab == 3 ? _showCouponDialog() : _showNewsDialog(),
-                      icon: const Icon(Icons.add, color: Colors.white),
-                      label: Text(_selectedTab == 3 ? 'Thêm Voucher' : 'Thêm Tin tức', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFCC0000), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTabBar(isMobile),
+                        if (isAdmin) ...[
+                          const SizedBox(height: 20),
+                          Wrap(
+                            spacing: 10,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => _selectedTab == 3 ? _showCouponDialog() : _showNewsDialog(),
+                                icon: const Icon(Icons.add, color: Colors.white),
+                                label: Text(_selectedTab == 3 ? 'Thêm Voucher' : 'Thêm Tin tức', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFCC0000), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
+                              ),
+                              if (_selectedTab != 3)
+                                ElevatedButton.icon(
+                                  onPressed: _seedDummyNews,
+                                  icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                                  label: const Text('Tạo 3 Tin Mẫu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
+                                ),
+                            ],
+                          ),
+                        ]
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildTabBar(isMobile),
+                        if (isAdmin)
+                          Row(
+                            children: [
+                              if (_selectedTab != 3) ...[
+                                ElevatedButton.icon(
+                                  onPressed: _seedDummyNews,
+                                  icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                                  label: const Text('Tạo 3 Tin Mẫu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
+                                ),
+                                const SizedBox(width: 10),
+                              ],
+                              ElevatedButton.icon(
+                                onPressed: () => _selectedTab == 3 ? _showCouponDialog() : _showNewsDialog(),
+                                icon: const Icon(Icons.add, color: Colors.white),
+                                label: Text(_selectedTab == 3 ? 'Thêm Voucher' : 'Thêm Tin tức', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFCC0000), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15)),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
-                ],
-              ),
             ),
 
             const SizedBox(height: 40),
@@ -123,9 +164,9 @@ class _NewsViewState extends State<NewsView> {
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: isMobile ? 1 : 3,
-                crossAxisSpacing: 30,
-                mainAxisSpacing: 30,
-                childAspectRatio: 2.2,
+                crossAxisSpacing: isMobile ? 15 : 30,
+                mainAxisSpacing: isMobile ? 15 : 30,
+                childAspectRatio: isMobile ? 1.3 : 2.2,
               ),
               itemCount: coupons.length,
               itemBuilder: (context, index) {
@@ -136,7 +177,7 @@ class _NewsViewState extends State<NewsView> {
                 return Stack(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(25),
+                      padding: EdgeInsets.all(isMobile ? 15 : 25),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFDF7FF),
                         borderRadius: BorderRadius.circular(20),
@@ -155,12 +196,12 @@ class _NewsViewState extends State<NewsView> {
                                   decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
                                   child: Text(data["type"] ?? 'Mua xe', style: const TextStyle(color: Colors.purple, fontSize: 12, fontWeight: FontWeight.bold)),
                                 ),
-                                const SizedBox(height: 15),
-                                Text(data["title"] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), maxLines: 2, overflow: TextOverflow.ellipsis),
+                                const SizedBox(height: 8),
+                                Text(data["title"] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17), maxLines: 2, overflow: TextOverflow.ellipsis),
                                 const Spacer(),
-                                Text('Mã: ${data["code"]}', style: TextStyle(color: Colors.grey[700], fontSize: 14, fontWeight: FontWeight.w600)),
-                                const SizedBox(height: 5),
-                                Text('HSD: ${data["date"]}', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                                Text('Mã: ${data["code"]}', style: TextStyle(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                Text('HSD: ${data["date"]}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                               ],
                             ),
                           ),
@@ -231,7 +272,7 @@ class _NewsViewState extends State<NewsView> {
   // ================= TẠO LƯỚI TIN TỨC =================
   Widget _buildNewsGrid(bool isMobile, bool isAdmin) {
     String filterCat = _selectedTab == 1 ? 'Xe mới' : (_selectedTab == 2 ? 'Bảo dưỡng' : 'All');
-    Query query = _firestore.collection('news');
+    Query query = _firestore.collection('news').orderBy('timestamp', descending: true);
     if (filterCat != 'All') query = query.where('category', isEqualTo: filterCat);
 
     return StreamBuilder<QuerySnapshot>(
@@ -247,7 +288,7 @@ class _NewsViewState extends State<NewsView> {
             crossAxisCount: isMobile ? 1 : 3,
             crossAxisSpacing: 30,
             mainAxisSpacing: 30,
-            childAspectRatio: 0.8,
+            childAspectRatio: isMobile ? 0.72 : 0.8,
           ),
           itemCount: news.length,
           itemBuilder: (context, index) {
@@ -306,39 +347,47 @@ class _NewsViewState extends State<NewsView> {
 
   // ================= BANNER KHỦNG TRÊN CÙNG =================
   Widget _buildFeaturedNews(bool isMobile) {
-    return Container(
-      width: double.infinity, height: isMobile ? 400 : 500,
-      decoration: const BoxDecoration(
-        image: DecorationImage(image: NetworkImage("https://images.unsplash.com/photo-1558981806-ec527fa84c39?q=80&w=2070"), fit: BoxFit.cover),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.9), Colors.transparent]),
-        ),
-        padding: EdgeInsets.all(isMobile ? 30 : 60),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return StreamBuilder<QuerySnapshot>(
+      stream: _firestore.collection('news').orderBy('timestamp', descending: true).limit(1).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox();
+        final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+
+        return Container(
+          width: double.infinity, height: isMobile ? 400 : 500,
+          decoration: BoxDecoration(
+            image: DecorationImage(image: NetworkImage(data["img"] ?? "https://images.unsplash.com/photo-1558981806-ec527fa84c39?q=80&w=2070"), fit: BoxFit.cover),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.9), Colors.transparent]),
+            ),
+            padding: EdgeInsets.all(isMobile ? 30 : 60),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end, crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.calendar_today, color: Colors.white70, size: 16), const SizedBox(width: 8), const Text('20 Tháng 4, 2026', style: TextStyle(color: Colors.white70)),
-                const SizedBox(width: 15),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFCC0000), borderRadius: BorderRadius.circular(5)), child: const Text('NỔI BẬT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, color: Colors.white70, size: 16), const SizedBox(width: 8), Text(data["date"] ?? '', style: const TextStyle(color: Colors.white70)),
+                    const SizedBox(width: 15),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFCC0000), borderRadius: BorderRadius.circular(5)), child: const Text('NỔI BẬT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                Text(data["title"] ?? '', style: TextStyle(color: Colors.white, fontSize: isMobile ? 28 : 46, fontWeight: FontWeight.bold, height: 1.2)),
+                const SizedBox(height: 15),
+                if (!isMobile) SizedBox(width: 700, child: Text(data["excerpt"] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.6))),
+                const SizedBox(height: 25),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFCC0000), padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => NewsDetailView(newsItem: data))),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Đọc ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), SizedBox(width: 8), Icon(Icons.arrow_forward, color: Colors.white, size: 18)]),
+                )
               ],
             ),
-            const SizedBox(height: 15),
-            Text('Honda Winner X 2026:\nThiết Kế Đột Phá, Hiệu Suất Đỉnh Cao', style: TextStyle(color: Colors.white, fontSize: isMobile ? 28 : 46, fontWeight: FontWeight.bold, height: 1.2)),
-            const SizedBox(height: 15),
-            if (!isMobile) const SizedBox(width: 700, child: Text('Khám phá mẫu Winner X hoàn toàn mới với công nghệ phun xăng điện tử tiên tiến và thiết kế khí động học sắc nét thiết lập tiêu chuẩn mới trong phân khúc xe côn tay thể thao.', style: TextStyle(color: Colors.white70, fontSize: 16, height: 1.6))),
-            const SizedBox(height: 25),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFCC0000), padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-              onPressed: () {},
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Đọc ngay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), SizedBox(width: 8), Icon(Icons.arrow_forward, color: Colors.white, size: 18)]),
-            )
-          ],
-        ),
-      ),
+          ),
+        );
+      }
     );
   }
 
@@ -376,7 +425,8 @@ class _NewsViewState extends State<NewsView> {
             onPressed: () async {
               final payload = {
                 'title': titleCtrl.text, 'img': imgCtrl.text, 'category': category,
-                'excerpt': excerptCtrl.text, 'date': '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}'
+                'excerpt': excerptCtrl.text, 'date': '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                'timestamp': FieldValue.serverTimestamp(),
               };
               doc == null ? await _firestore.collection('news').add(payload) : await doc.reference.update(payload);
               Navigator.pop(ctx);
@@ -432,5 +482,44 @@ class _NewsViewState extends State<NewsView> {
         ],
       ),
     );
+  }
+
+  // ================= TẠO DỮ LIỆU MẪU (SEED DATA) =================
+  Future<void> _seedDummyNews() async {
+    final List<Map<String, dynamic>> dummyNews = [
+      {
+        'title': 'Honda Winner X 2026: Thiết Kế Đột Phá, Hiệu Suất Đỉnh Cao',
+        'category': 'Xe mới',
+        'date': '22/05/2026',
+        'img': 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?q=80&w=2070',
+        'excerpt': 'Khám phá mẫu Winner X hoàn toàn mới với công nghệ phun xăng điện tử tiên tiến và thiết kế khí động học sắc nét.',
+        'content': 'Phiên bản Winner X 2026 hứa hẹn mang lại trải nghiệm lái xe côn tay đỉnh cao. Động cơ DOHC 6 cấp số, phanh ABS chống bó cứng an toàn...',
+      },
+      {
+        'title': 'Lịch Bảo Dưỡng Định Kỳ Quan Trọng Thế Nào?',
+        'category': 'Bảo dưỡng',
+        'date': '20/05/2026',
+        'img': 'https://images.unsplash.com/photo-1530053969600-caed2596d242?q=80&w=1974',
+        'excerpt': 'Bảo dưỡng định kỳ giúp xe vận hành mượt mà, tiết kiệm xăng và phát hiện sớm các hỏng hóc.',
+        'content': 'Một chiếc xe máy dù tốt đến đâu cũng cần được chăm sóc thường xuyên. Đặc biệt là các hạng mục: Nhớt máy, nhông sên dĩa, lọc gió, bugi...',
+      },
+      {
+        'title': 'Air Blade 2026 Mới: Sẵn Sàng Bứt Phá',
+        'category': 'Xe mới',
+        'date': '15/05/2026',
+        'img': 'https://images.unsplash.com/photo-1568772585407-9361f9bf3c87?q=80&w=2070',
+        'excerpt': 'Honda ra mắt Air Blade 2026 với tem xe cá tính và cụm đồng hồ LCD cực kỳ hiện đại.',
+        'content': 'Vẫn là động cơ eSP+ 4 van thế hệ mới mạnh mẽ, hệ thống khóa SmartKey an toàn, và cốp chứa đồ rộng rãi, Air Blade 2026 là sự lựa chọn hàng đầu cho xe tay ga.',
+      }
+    ];
+
+    for (var n in dummyNews) {
+      n['timestamp'] = FieldValue.serverTimestamp();
+      await _firestore.collection('news').add(n);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã tạo 3 tin mẫu thành công!'), backgroundColor: Colors.green));
+    }
   }
 }

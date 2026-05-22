@@ -98,6 +98,7 @@ class _AdminOrdersViewState extends State<AdminOrdersView> {
                         Text(status, style: TextStyle(color: isSuccess ? Colors.green : Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
                       ],
                     ),
+                    onTap: () => _showOrderDetails(context, orders[index].id, order),
                   );
                 },
               );
@@ -105,6 +106,96 @@ class _AdminOrdersViewState extends State<AdminOrdersView> {
           )
         ],
       ),
+    );
+  }
+
+  void _showOrderDetails(BuildContext context, String orderId, Map<String, dynamic> order) {
+    List<dynamic> items = order['items'] ?? [];
+    int totalAmount = order['totalAmount'] ?? 0;
+    DateTime date = (order['createdAt'] as Timestamp).toDate();
+    String dateStr = DateFormat('dd/MM/yyyy HH:mm').format(date);
+    String userEmail = order['userEmail'] ?? 'Khách vãng lai';
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Row(
+                children: [
+                  const Icon(Icons.receipt_long, color: Color(0xFFCC0000)),
+                  const SizedBox(width: 10),
+                  const Text('Chi Tiết Đơn Hàng', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Mã đơn: $orderId', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 5),
+                            Text('Khách hàng: $userEmail'),
+                            const SizedBox(height: 5),
+                            Text('Ngày đặt: $dateStr'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('Sản phẩm:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 10),
+                      ...items.map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(item['imageUrl'] ?? '', width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(width: 50, height: 50, color: Colors.grey[300], child: const Icon(Icons.motorcycle))),
+                              ),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item['name'] ?? 'Tên xe', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    Text('SL: ${item['quantity'] ?? 1}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              Text(item['price'] ?? '0 VNĐ', style: const TextStyle(color: Color(0xFFCC0000), fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      const Divider(height: 30),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Tổng tiền:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(formatter.format(totalAmount), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFFCC0000))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Đóng', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                ),
+              ],
+        );
+      }
     );
   }
 }

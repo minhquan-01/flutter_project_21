@@ -36,6 +36,8 @@ class _PaymentResultViewState extends State<PaymentResultView> with WidgetsBindi
     super.dispose();
   }
 
+  bool _isConfirming = false; // Ngăn chặn gọi hàm nhiều lần
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _isProcessing) {
@@ -44,6 +46,9 @@ class _PaymentResultViewState extends State<PaymentResultView> with WidgetsBindi
   }
 
   void _autoConfirmPayment() async {
+    if (_isConfirming) return;
+    _isConfirming = true;
+
     // Cho App đợi 3 giây để Server MoMo cập nhật tiền bạc xong xuôi
     await Future.delayed(const Duration(seconds: 3));
 
@@ -52,7 +57,7 @@ class _PaymentResultViewState extends State<PaymentResultView> with WidgetsBindi
       bool isPaidReal = await _momoController.checkPaymentStatus(widget.momoOrderId);
 
       if (isPaidReal) {
-        // --- NẾU MO MO BÁO THÀNH CÔNG THẬT ---
+        // Xử lý khi thanh toán thành công
         await _controller.updateOrderStatus(widget.firebaseOrderId, 'Đã thanh toán');
         for (var doc in widget.items) {
           String productId = doc['id'];
@@ -68,7 +73,7 @@ class _PaymentResultViewState extends State<PaymentResultView> with WidgetsBindi
           });
         }
       } else {
-        // --- NẾU THẺ BỊ KHÓA / KHÔNG ĐỦ TIỀN / KHÁCH TẮT NGANG ---
+        // Xử lý khi thanh toán thất bại
         await _controller.updateOrderStatus(widget.firebaseOrderId, 'Thanh toán thất bại');
 
         if (mounted) {

@@ -209,7 +209,7 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
     );
   }
 
-  // --- HỘP THOẠI CHỈNH SỬA THÔNG TIN ---
+  // Form sửa thông tin user
   void _showEditProfileDialog(BuildContext context, String currentName, String currentPhone) {
     final nameCtrl = TextEditingController(text: currentName);
     final phoneCtrl = TextEditingController(text: currentPhone);
@@ -398,7 +398,7 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                   String imgUrl = firstItem?['imageUrl'] ?? '';
                   String status = order['status'] ?? 'Đang xử lý';
 
-                  return _orderItem(title, orders[index].id, dateStr, 'Tiêu chuẩn', price, imgUrl, status);
+                  return _orderItem(title, orders[index].id, dateStr, 'Tiêu chuẩn', price, imgUrl, status, order);
                 },
               );
             },
@@ -408,7 +408,7 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
     );
   }
 
-  Widget _orderItem(String name, String id, String date, String color, String price, String imgUrl, String status) {
+  Widget _orderItem(String name, String id, String date, String color, String price, String imgUrl, String status, Map<String, dynamic> order) {
     bool isSuccess = status == 'Đã thanh toán' || status == 'Đã nhận xe';
     return LayoutBuilder(builder: (context, constraints) {
       bool isSmall = constraints.maxWidth < 500;
@@ -466,7 +466,7 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
                         ),
                         child: const Text('Thanh toán ngay', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       ),
-                    _actionButton('Chi Tiết', null),
+                    _actionButton('Chi Tiết', null, () => _showOrderDetailDialog(id, date, status, order)),
                   ],
                 )
               ],
@@ -477,15 +477,117 @@ class _CustomerDashboardViewState extends State<CustomerDashboardView> {
     });
   }
 
-  Widget _actionButton(String text, IconData? icon) {
+  Widget _actionButton(String text, IconData? icon, VoidCallback onPressed) {
     return OutlinedButton(
       style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), side: BorderSide(color: Colors.grey[300]!)),
-      onPressed: () {},
+      onPressed: onPressed,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[Icon(icon, size: 16, color: Colors.black87), const SizedBox(width: 5)],
           Text(text, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  void _showOrderDetailDialog(String orderId, String dateStr, String status, Map<String, dynamic> order) {
+    List<dynamic> items = order['items'] ?? [];
+    int totalAmount = order['totalAmount'] ?? 0;
+    bool isSuccess = status == 'Đã thanh toán' || status == 'Đã nhận xe';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        title: Column(
+          children: [
+            const Icon(Icons.receipt_long, size: 50, color: Color(0xFFCC0000)),
+            const SizedBox(height: 10),
+            const Text('Chi Tiết Đơn Hàng', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+            const SizedBox(height: 5),
+            Text('Mã Đơn: $orderId', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(10)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Ngày đặt', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 4),
+                          Text(dateStr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('Trạng thái', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: isSuccess ? Colors.green[50] : Colors.orange[50], borderRadius: BorderRadius.circular(5)),
+                            child: Text(status, style: TextStyle(color: isSuccess ? Colors.green : Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 25),
+                const Text('Sản Phẩm Đã Đặt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 15),
+                ...items.map((item) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 15),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(item['imageUrl'] ?? '', width: 60, height: 60, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(width: 60, height: 60, color: Colors.grey[200], child: const Icon(Icons.two_wheeler, size: 20))),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item['name'] ?? 'Tên xe', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const SizedBox(height: 5),
+                              Text('Số lượng: ${item['quantity'] ?? 1}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        Text(item['price'] ?? '0 VNĐ', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFCC0000))),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                const Divider(color: Colors.black12, height: 30),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Tổng Thanh Toán', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(formatter.format(totalAmount), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFCC0000))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))),
         ],
       ),
     );

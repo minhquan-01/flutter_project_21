@@ -53,3 +53,10 @@ android/app/google-services.json
 # Ẩn file khóa của iOS / macOS
 ios/Runner/GoogleService-Info.plist
 macos/Runner/GoogleService-Info.plist
+
+# --- BẢO MẬT API KEYS ---
+# File chứa các biến môi trường và API key
+.env
+
+# Các file test thử nghiệm gọi API
+test_imgbb.dart

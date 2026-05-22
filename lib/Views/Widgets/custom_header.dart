@@ -3,6 +3,7 @@ import '../../Controllers/auth_controller.dart';
 import '../auth_view.dart';
 import '../admin_view.dart';
 import '../products_view.dart';
+import '../home_view.dart';
 import '../contact_view.dart';
 import '../customer_dashboard_view.dart';
 import '../news_view.dart';
@@ -16,7 +17,7 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(70);
 
-  // --- HÀM TẠO DRAWER CHO MOBILE ---
+  // Drawer cho mobile
   static Widget buildDrawer(BuildContext context, String activeTab) {
     return ListenableBuilder(
       listenable: AuthController.instance,
@@ -24,10 +25,14 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
         final auth = AuthController.instance;
         return Drawer(
           backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.horizontal(right: Radius.circular(20)),
+          ),
           child: Column(
             children: [
               DrawerHeader(
                 decoration: const BoxDecoration(color: Color(0xFFCC0000)),
+                margin: EdgeInsets.zero,
                 child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -42,19 +47,24 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
               ),
-              _buildDrawerItem(context, Icons.home_outlined, 'Trang chủ', 'home', activeTab),
-              _buildDrawerItem(context, Icons.motorcycle_outlined, 'Sản phẩm', 'products', activeTab),
-              _buildDrawerItem(context, Icons.contact_support_outlined, 'Liên hệ', 'contact', activeTab),
-              _buildDrawerItem(context, Icons.newspaper_outlined, 'Tin tức', 'news', activeTab),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _buildDrawerItem(context, Icons.home_outlined, 'Trang chủ', 'home', activeTab),
+                    _buildDrawerItem(context, Icons.motorcycle_outlined, 'Sản phẩm', 'products', activeTab),
+                    _buildDrawerItem(context, Icons.contact_support_outlined, 'Liên hệ', 'contact', activeTab),
+                    _buildDrawerItem(context, Icons.newspaper_outlined, 'Tin tức', 'news', activeTab),
 
-              if (auth.isLoggedIn && !auth.isAdmin)
-                _buildDrawerItem(context, Icons.dashboard_outlined, 'Bảng điều khiển', 'dashboard', activeTab),
+                    if (auth.isLoggedIn && !auth.isAdmin)
+                      _buildDrawerItem(context, Icons.dashboard_outlined, 'Bảng điều khiển', 'dashboard', activeTab),
 
-              if (auth.isAdmin)
-                _buildDrawerItem(context, Icons.admin_panel_settings_outlined, 'Quản trị', 'admin', activeTab),
-
-              const Spacer(),
-              const Divider(),
+                    if (auth.isAdmin)
+                      _buildDrawerItem(context, Icons.admin_panel_settings_outlined, 'Quản trị', 'admin', activeTab),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: Icon(auth.isLoggedIn ? Icons.logout : Icons.person_outline, color: auth.isLoggedIn ? const Color(0xFFCC0000) : Colors.black87),
                 title: Text(auth.isLoggedIn ? 'Đăng xuất' : 'Đăng nhập', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -69,7 +79,7 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
                   }
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 15),
             ],
           ),
         );
@@ -95,8 +105,10 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerDashboardView()));
         } else if (tabId == 'news') {
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const NewsView()));
-        } else {
+        } else if (tabId == 'products') {
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProductsView()));
+        } else {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeView()));
         }
       },
     );
@@ -116,9 +128,46 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
             elevation: 1,
             toolbarHeight: 70,
             automaticallyImplyLeading: false,
-            leading: !isDesktop ? IconButton(
-              icon: const Icon(Icons.menu, color: Colors.black87),
-              onPressed: () => Scaffold.of(context).openDrawer(),
+            leading: !isDesktop ? Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.menu, color: Colors.black87),
+                onPressed: () {
+                  if (Scaffold.of(ctx).hasDrawer) {
+                    Scaffold.of(ctx).openDrawer();
+                  } else {
+                    // Mở menu dạng Drawer trượt từ mép trái màn hình
+                    showGeneralDialog(
+                      context: context,
+                      barrierDismissible: true,
+                      barrierLabel: 'Menu',
+                      barrierColor: Colors.black54,
+                      transitionDuration: const Duration(milliseconds: 250),
+                      pageBuilder: (context, animation, secondaryAnimation) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            width: 300,
+                            height: double.infinity,
+                            child: buildDrawer(context, activeTab),
+                          ),
+                        );
+                      },
+                      transitionBuilder: (context, animation, secondaryAnimation, child) {
+                        return SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(-1.0, 0.0),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          )),
+                          child: child,
+                        );
+                      },
+                    );
+                  }
+                },
+              ),
             ) : null,
             titleSpacing: isDesktop ? 40 : 15,
 
@@ -126,7 +175,7 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 InkWell(
-                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProductsView())),
+                  onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeView())),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                     decoration: BoxDecoration(color: const Color(0xFFCC0000), borderRadius: BorderRadius.circular(8)),
@@ -213,7 +262,8 @@ class CustomHeader extends StatelessWidget implements PreferredSizeWidget {
           else if (tabId == 'contact') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ContactScreen()));
           else if (tabId == 'dashboard') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerDashboardView()));
           else if (tabId == 'news') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const NewsView()));
-          else Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProductsView()));
+          else if (tabId == 'products') Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ProductsView()));
+          else Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeView()));
         },
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

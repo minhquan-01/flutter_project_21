@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'Views/products_view.dart';
+import 'Views/home_view.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -24,7 +26,7 @@ class HondaEcommerceApp extends StatelessWidget {
         fontFamily: 'Roboto', // Bạn có thể thêm font chữ hiện đại nếu muốn
         useMaterial3: true,
       ),
-      home: const ProductsView(),
+      home: const HomeView(),
     );
   }
 }

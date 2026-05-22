@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../Models/product_model.dart';
+import '../Models/review_model.dart';
 
 class ProductController extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -11,18 +12,19 @@ class ProductController extends ChangeNotifier {
   bool isLoading = false;
 
   String selectedCategory = 'All';
+  String searchQuery = '';
   List<String> categories = ['All', 'Scooter', 'Sport', 'Cub'];
 
   ProductController() { fetchProducts(); }
 
-  // --- LẤY & LỌC SẢN PHẨM ---
+  // Lọc danh sách xe
   Future<void> fetchProducts() async {
     isLoading = true;
     notifyListeners();
     try {
       final snapshot = await _db.collection('products').get();
       allProducts = snapshot.docs.map((doc) => ProductModel.fromFirestore(doc)).toList();
-      filterByCategory(selectedCategory);
+      _applyFilters();
     } catch (e) {
       debugPrint("Lỗi Firestore: $e");
     }
@@ -32,12 +34,25 @@ class ProductController extends ChangeNotifier {
 
   void filterByCategory(String cat) {
     selectedCategory = cat;
-    filteredProducts = cat == 'All' ? allProducts : allProducts.where((p) => p.category == cat).toList();
+    _applyFilters();
+  }
+
+  void searchProduct(String query) {
+    searchQuery = query;
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    filteredProducts = allProducts.where((p) {
+      bool matchCategory = selectedCategory == 'All' || p.category == selectedCategory;
+      bool matchSearch = searchQuery.isEmpty || p.name.toLowerCase().contains(searchQuery.toLowerCase());
+      return matchCategory && matchSearch;
+    }).toList();
     notifyListeners();
   }
 
   // ==========================================
-  // --- LOGIC GIỎ HÀNG (CART) ---
+  // Xử lý giỏ hàng
   // ==========================================
 
   Future<void> addToCart(ProductModel product) async {
@@ -47,12 +62,24 @@ class ProductController extends ChangeNotifier {
     }
 
     try {
+      // ĐỌC REAL-TIME KIỂM TRA TỒN KHO
+      final productDoc = await _db.collection('products').doc(product.id).get();
+      if (!productDoc.exists) throw Exception('Sản phẩm không tồn tại!');
+      int realStock = (productDoc.data() as Map<String, dynamic>?)?['stock'] ?? 0;
+
       final docRef = _db.collection('carts').doc(user.uid).collection('items').doc(product.id);
       final doc = await docRef.get();
 
       if (doc.exists) {
-        await docRef.update({'quantity': (doc.data()?['quantity'] ?? 1) + 1});
+        int currentQuantity = doc.data()?['quantity'] ?? 1;
+        if (currentQuantity + 1 > realStock) {
+          throw Exception('Số lượng trong giỏ đã đạt giới hạn tồn kho ($realStock chiếc)');
+        }
+        await docRef.update({'quantity': currentQuantity + 1});
       } else {
+        if (realStock < 1) {
+          throw Exception('Sản phẩm hiện đã hết hàng!');
+        }
         await docRef.set({
           'id': product.id,
           'name': product.name,
@@ -63,7 +90,7 @@ class ProductController extends ChangeNotifier {
         });
       }
     } catch (e) {
-      throw Exception('Lỗi hệ thống: $e');
+      rethrow; // Bắn thẳng lỗi ra UI để hiện thông báo chính xác
     }
   }
 
@@ -90,7 +117,7 @@ class ProductController extends ChangeNotifier {
   }
 
   // ==========================================
-  // --- LOGIC ĐƠN HÀNG (ORDERS) & TRỪ KHO ---
+  // Xử lý đơn hàng và cập nhật tồn kho
   // ==========================================
 
   // Tạo đơn hàng mới
@@ -119,7 +146,7 @@ class ProductController extends ChangeNotifier {
         .snapshots();
   }
 
-  // --- LOGIC BẢO DƯỠNG ---
+  // Đặt lịch bảo dưỡng
   Stream<QuerySnapshot> getMaintenanceSchedule() {
     final user = FirebaseAuth.instance.currentUser;
     return _db.collection('maintenance')
@@ -145,23 +172,27 @@ class ProductController extends ChangeNotifier {
         DocumentSnapshot snapshot = await transaction.get(productRef);
         if (!snapshot.exists) return;
 
-        int currentStock = snapshot['stock'] ?? 0;
-        int currentSold = snapshot['sold'] ?? 0;
+        final data = snapshot.data() as Map<String, dynamic>?;
+        if (data == null) return;
 
-        // Trừ kho, cộng thêm vào số lượng đã bán
-        if (currentStock >= quantityPurchased) {
-          transaction.update(productRef, {
-            'stock': currentStock - quantityPurchased,
-            'sold': currentSold + quantityPurchased
-          });
-        }
+        int currentStock = data.containsKey('stock') ? (data['stock'] as num).toInt() : 0;
+        int currentSold = data.containsKey('sold') ? (data['sold'] as num).toInt() : 0;
+
+        // Trừ kho (không để âm) và cộng số lượng đã bán
+        int newStock = currentStock - quantityPurchased;
+        if (newStock < 0) newStock = 0;
+        
+        transaction.update(productRef, {
+          'stock': newStock,
+          'sold': currentSold + quantityPurchased
+        });
       });
     } catch (e) {
       debugPrint("Lỗi cập nhật kho: $e");
     }
   }
 
-  // --- QUẢN TRỊ SẢN PHẨM ---
+  // Thêm sửa xóa xe (Admin)
   Future<void> addProduct(ProductModel p) async {
     await _db.collection('products').add(p.toMap());
     await fetchProducts();
@@ -175,7 +206,7 @@ class ProductController extends ChangeNotifier {
     await fetchProducts();
   }
 
-  // --- LOGIC VOUCHER ---
+  // Xử lý mã giảm giá
   Future<Map<String, dynamic>?> applyCoupon(String code) async {
     try {
       final snapshot = await _db.collection('coupons')
@@ -192,5 +223,77 @@ class ProductController extends ChangeNotifier {
     } catch (e) {
       rethrow;
     }
+  }
+  // ==========================================
+  // RATING & REVIEWS
+  // ==========================================
+
+  Future<void> addReview(String productId, double rating, String comment) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('Vui lòng đăng nhập để đánh giá!');
+
+    // 1. Kiểm tra xem người dùng đã mua sản phẩm này chưa
+    final userOrders = await _db.collection('orders').where('userId', isEqualTo: user.uid).get();
+    bool hasBought = false;
+    for (var doc in userOrders.docs) {
+      List items = doc.data()['items'] ?? [];
+      if (items.any((item) => item['id'] == productId)) {
+        hasBought = true;
+        break;
+      }
+    }
+    if (!hasBought) throw Exception('Bạn cần mua sản phẩm này trước khi có thể viết đánh giá!');
+
+    // 2. Lấy thông tin người dùng từ Firestore (để lấy tên và avatar chính xác nhất)
+    String userName = user.email?.split('@').first ?? 'Khách';
+    String userAvatar = '';
+    
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    if (userDoc.exists) {
+      final data = userDoc.data()!;
+      if (data['name'] != null && data['name'].toString().isNotEmpty) {
+        userName = data['name'];
+      }
+      if (data['avatarUrl'] != null && data['avatarUrl'].toString().isNotEmpty) {
+        userAvatar = data['avatarUrl'];
+      }
+    }
+
+    // 3. Thêm đánh giá
+    final reviewRef = _db.collection('products').doc(productId).collection('reviews').doc();
+    final productRef = _db.collection('products').doc(productId);
+
+    await _db.runTransaction((transaction) async {
+      final productDoc = await transaction.get(productRef);
+      if (!productDoc.exists) throw Exception('Sản phẩm không tồn tại!');
+
+      int currentCount = productDoc.data()?['reviewCount'] ?? 0;
+      double currentRating = (productDoc.data()?['rating'] ?? 0.0).toDouble();
+
+      double newRating = ((currentRating * currentCount) + rating) / (currentCount + 1);
+      
+      transaction.set(reviewRef, {
+        'userId': user.uid,
+        'userName': userName,
+        'userAvatar': userAvatar,
+        'rating': rating,
+        'comment': comment,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      transaction.update(productRef, {
+        'rating': newRating,
+        'reviewCount': currentCount + 1,
+      });
+    });
+
+    await fetchProducts(); // Tải lại để cập nhật rating mới
+  }
+
+  Future<List<ReviewModel>> getReviews(String productId) async {
+    final snapshot = await _db.collection('products').doc(productId).collection('reviews')
+        .orderBy('createdAt', descending: true)
+        .get();
+    return snapshot.docs.map((doc) => ReviewModel.fromFirestore(doc)).toList();
   }
 }

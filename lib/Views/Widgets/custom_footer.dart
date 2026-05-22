@@ -1,23 +1,31 @@
 import 'package:flutter/material.dart';
+import '../products_view.dart';
+import '../news_view.dart';
+import '../cart_view.dart';
+import '../contact_view.dart';
+import '../auth_view.dart';
+import '../customer_dashboard_view.dart';
 
 class CustomFooter extends StatelessWidget {
   const CustomFooter({super.key});
 
   @override
   Widget build(BuildContext context) {
+    bool isMobile = MediaQuery.of(context).size.width < 700;
+
     return Container(
       width: double.infinity,
       color: const Color(0xFF0A0A0A), // Nền đen
-      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 60),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 25 : 50, vertical: isMobile ? 40 : 60),
       child: Column(
         children: [
           Wrap(
-            spacing: 50,
+            spacing: isMobile ? 20 : 50,
             runSpacing: 40,
             alignment: WrapAlignment.spaceBetween,
             children: [
               SizedBox(
-                width: 300,
+                width: isMobile ? double.infinity : 300,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -40,10 +48,18 @@ class CustomFooter extends StatelessWidget {
                   ],
                 ),
               ),
-              _buildFooterColumn('Liên kết nhanh', ['Tất cả sản phẩm', 'Liên hệ', 'Về Honda', 'Bảo hành', 'Trung tâm dịch vụ']),
-              _buildFooterColumn('Chăm sóc khách hàng', ['Câu hỏi thường gặp', 'Hỗ trợ trả góp', 'Lái thử', 'Sách hướng dẫn', 'Phụ tùng & Phụ kiện']),
+              _buildFooterColumn(context, 'Liên kết nhanh', {
+                'Tất cả sản phẩm': () => Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const ProductsView()), (route) => false),
+                'Tin tức & Sự kiện': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsView())),
+                'Giỏ hàng của bạn': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CartView())),
+                'Liên hệ / Hỗ trợ': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactScreen())),
+              }),
+              _buildFooterColumn(context, 'Tài khoản', {
+                'Đăng nhập / Đăng ký': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthView())),
+                'Bảng điều khiển cá nhân': () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerDashboardView())),
+              }),
               SizedBox(
-                width: 250,
+                width: isMobile ? double.infinity : 250,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -66,16 +82,19 @@ class CustomFooter extends StatelessWidget {
     );
   }
 
-  // --- HÀM HỖ TRỢ VẼ FOOTER NẰM GỌN TRONG NÀY ---
-  Widget _buildFooterColumn(String title, List<String> links) {
+  // Cấu trúc footer
+  Widget _buildFooterColumn(BuildContext context, String title, Map<String, VoidCallback> links) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
-        ...links.map((link) => Padding(
+        ...links.entries.map((entry) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Text(link, style: const TextStyle(color: Colors.white54, fontSize: 14)),
+          child: InkWell(
+            onTap: entry.value,
+            child: Text(entry.key, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+          ),
         )),
       ],
     );

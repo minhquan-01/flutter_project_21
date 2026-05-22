@@ -5,6 +5,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io' as io;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AuthController extends ChangeNotifier {
   static final AuthController instance = AuthController._internal();
@@ -79,7 +82,15 @@ class AuthController extends ChangeNotifier {
     await _auth.signOut();
   }
 
-  // --- CẬP NHẬT THÔNG TIN CÁ NHÂN ---
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      throw Exception(_handleAuthError(e.code));
+    }
+  }
+
+  // Cập nhật profile
   Future<void> updateProfile({String? name, String? phone, String? avatarUrl}) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
@@ -101,33 +112,41 @@ class AuthController extends ChangeNotifier {
     await _fetchUserData(uid);
   }
 
-  // --- UPLOAD ẢNH ĐẠI DIỆN ---
+  // Upload avatar
   Future<void> uploadAvatar() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
-        withData: kIsWeb, // Chỉ lấy bytes trên Web để tiết kiệm RAM trên Mobile
+        withData: true, // Lấy bytes trên mọi nền tảng cho ImgBB
       );
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        final uid = _auth.currentUser?.uid;
-        if (uid == null) return;
+        if (file.bytes == null) throw Exception("Không thể đọc dữ liệu ảnh.");
 
-        final storageRef = FirebaseStorage.instance.ref().child('avatars').child('$uid.jpg');
+        // Dùng API của ImgBB để tránh tốn phí Firebase Storage
+        final String imgbbKey = dotenv.env['IMGBB_API_KEY'] ?? '';
+        final uri = Uri.parse("https://api.imgbb.com/1/upload");
         
-        // Xử lý upload theo từng nền tảng
-        if (kIsWeb) {
-          if (file.bytes == null) throw Exception("Không thể đọc dữ liệu ảnh.");
-          await storageRef.putData(file.bytes!);
-        } else {
-          if (file.path == null) throw Exception("Không tìm thấy đường dẫn ảnh.");
-          await storageRef.putFile(io.File(file.path!));
-        }
+        final request = http.MultipartRequest("POST", uri)
+          ..fields['key'] = imgbbKey
+          ..files.add(http.MultipartFile.fromBytes(
+            'image',
+            file.bytes!,
+            filename: file.name,
+          ));
 
-        final url = await storageRef.getDownloadURL();
-        await updateProfile(avatarUrl: url);
+        final response = await request.send();
+        final responseData = await response.stream.bytesToString();
+        final jsonMap = json.decode(responseData);
+
+        if (jsonMap['success'] == true) {
+          final url = jsonMap['data']['url'];
+          await updateProfile(avatarUrl: url);
+        } else {
+          throw Exception("Lỗi ImgBB: ${jsonMap['error']['message']}");
+        }
       }
     } catch (e) {
       debugPrint("Lỗi uploadAvatar: $e");

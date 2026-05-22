@@ -18,7 +18,7 @@ class _AuthViewState extends State<AuthView> {
   final passCtrl = TextEditingController();
   final nameCtrl = TextEditingController();
 
-  // --- HÀM XỬ LÝ KHI BẤM NÚT SUBMIT ---
+  // Xử lý đăng nhập / đăng ký
   void _submit() async {
     // 1. Kiểm tra đầu vào cơ bản
     if (emailCtrl.text.isEmpty || passCtrl.text.isEmpty) {
@@ -83,7 +83,7 @@ class _AuthViewState extends State<AuthView> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // --- KHỐI CARD CHÍNH ---
+              // Khối form chính
               Container(
                 width: 400,
                 decoration: BoxDecoration(
@@ -146,7 +146,7 @@ class _AuthViewState extends State<AuthView> {
                           if (isLogin)
                             Align(
                               alignment: Alignment.centerRight,
-                              child: TextButton(onPressed: (){}, child: const Text('Quên mật khẩu?', style: TextStyle(color: Color(0xFFCC0000), fontWeight: FontWeight.bold))),
+                              child: TextButton(onPressed: _showForgotPasswordDialog, child: const Text('Quên mật khẩu?', style: TextStyle(color: Color(0xFFCC0000), fontWeight: FontWeight.bold))),
                             ),
 
                           const SizedBox(height: 20),
@@ -207,7 +207,65 @@ class _AuthViewState extends State<AuthView> {
     );
   }
 
-  // --- TIỆN ÍCH VẼ GIAO DIỆN ---
+  // Dialog quên mật khẩu
+  void _showForgotPasswordDialog() {
+    final resetEmailCtrl = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setStateSTB) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Khôi phục mật khẩu', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFCC0000))),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Vui lòng nhập Email của bạn. Chúng tôi sẽ gửi một liên kết để bạn đặt lại mật khẩu.'),
+                const SizedBox(height: 20),
+                TextField(controller: resetEmailCtrl, decoration: InputDecoration(labelText: 'Email của bạn', prefixIcon: const Icon(Icons.email_outlined), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy', style: TextStyle(color: Colors.grey))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFCC0000), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              onPressed: isLoading ? null : () async {
+                if (resetEmailCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập Email!'), backgroundColor: Colors.red));
+                  return;
+                }
+                setStateSTB(() => isLoading = true);
+                
+                try {
+                  await AuthController.instance.resetPassword(resetEmailCtrl.text);
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã gửi link khôi phục mật khẩu! Vui lòng kiểm tra hộp thư Email của bạn.'), backgroundColor: Colors.green));
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red));
+                  }
+                } finally {
+                  if (context.mounted) {
+                    setStateSTB(() => isLoading = false);
+                  }
+                }
+              },
+              child: isLoading ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Gửi liên kết', style: TextStyle(color: Colors.white)),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Các widget phụ trợ
 
   Widget _buildTabButton(String title, bool isTabLogin) {
     bool isSelected = isLogin == isTabLogin;

@@ -295,8 +295,9 @@ class _CartViewState extends State<CartView> {
                 children: [
                   const Icon(Icons.check_circle, color: Colors.green, size: 16),
                   const SizedBox(width: 5),
-                  Text('Đã áp dụng: ${_appliedCoupon!['title']}', style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
-                  const Spacer(),
+                  Expanded(
+                    child: Text('Đã áp dụng: ${_appliedCoupon!['title']}', style: const TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.close, size: 16, color: Colors.red),
                     onPressed: () => setState(() { _appliedCoupon = null; _couponController.clear(); }),
@@ -327,6 +328,18 @@ class _CartViewState extends State<CartView> {
               ),
               onPressed: () async {
                 try {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đang kiểm tra tồn kho...')));
+
+                  // KIỂM TRA TỒN KHO LẦN CUỐI TRƯỚC KHI TẠO ĐƠN
+                  for (var item in items) {
+                    var doc = await FirebaseFirestore.instance.collection('products').doc(item['id']).get();
+                    int realStock = (doc.data() as Map<String, dynamic>?)?['stock'] ?? 0;
+                    int cartQty = item['quantity'] ?? 1;
+                    if (cartQty > realStock) {
+                      throw Exception('Sản phẩm "${item['name']}" chỉ còn $realStock chiếc, vui lòng kiểm tra lại!');
+                    }
+                  }
+
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đang tạo đơn hàng...')));
 
                   // 1. Tạo đơn hàng với trạng thái "Chờ thanh toán" trên Firebase

@@ -2,18 +2,22 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class MoMoController {
-  // Bộ key bạn vừa cung cấp
-  static const String partnerCode = "MOMO";
-  static const String accessKey = "F8BBA842ECF85";
-  static const String secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+  // Bộ key lấy từ .env
+  static String get partnerCode => dotenv.env['MOMO_PARTNER_CODE'] ?? '';
+  static String get accessKey => dotenv.env['MOMO_ACCESS_KEY'] ?? '';
+  static String get secretKey => dotenv.env['MOMO_SECRET_KEY'] ?? '';
 
   static const String momoEndpoint = "https://test-payment.momo.vn/v2/gateway/api/create";
   static const String momoQueryEndpoint = "https://test-payment.momo.vn/v2/gateway/api/query";
 
   // 1. HÀM TẠO GIAO DỊCH VÀ MỞ TRÌNH DUYỆT MOMO
   Future<void> createTestPayment(int realAmount, String orderTitle, String momoOrderId) async {
+    // Ép giá về 50.000 VNĐ vì MoMo test environment giới hạn số tiền giao dịch
+    realAmount = 50000;
+
     String safeOrderInfo = "Thanh toan don hang Honda";
     String requestId = momoOrderId;
     String redirectUrl = "https://momo.vn";

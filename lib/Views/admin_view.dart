@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../Controllers/product_controller.dart';
 import '../Models/product_model.dart';
 import 'Widgets/custom_header.dart';
@@ -7,7 +10,8 @@ import 'Widgets/custom_footer.dart';
 import 'contact_admin_view.dart';
 import 'test_drive_admin_view.dart';
 import 'dashboard_view.dart';
-import 'admin_orders_view.dart'; // NẠP TRANG ĐƠN HÀNG VÀO ĐÂY
+import 'admin_orders_view.dart';
+import 'admin_users_view.dart';
 
 class AdminView extends StatefulWidget {
   const AdminView({super.key});
@@ -56,7 +60,9 @@ class _AdminViewState extends State<AdminView> {
         ? Padding(padding: EdgeInsets.all(padding), child: const ContactAdminManager())
         : _selectedSidebarIndex == 3
         ? Padding(padding: EdgeInsets.all(padding), child: const TestDriveAdminManager())
-        : const AdminOrdersView(); // <--- INDEX SỐ 4 LÀ ĐƠN HÀNG
+        : _selectedSidebarIndex == 4
+        ? const AdminOrdersView()
+        : const AdminUsersView(); // <--- INDEX SỐ 5 LÀ KHÁCH HÀNG
   }
 
   Widget _buildProductManager(bool isMobile) {
@@ -151,7 +157,8 @@ class _AdminViewState extends State<AdminView> {
     bool isEdit = p != null;
     final name = TextEditingController(text: isEdit ? p.name : '');
     final price = TextEditingController(text: isEdit ? p.price.replaceAll(RegExp(r'[^0-9]'), '') : '');
-    final imageUrl = TextEditingController(text: isEdit ? p.imageUrl : '');
+    final imageUrl = TextEditingController(); // Dùng để nhập link thủ công
+    List<String> imageUrlsList = isEdit ? List.from(p.imageUrls) : [];
     final stock = TextEditingController(text: isEdit ? p.stock.toString() : '0');
     final desc = TextEditingController(text: isEdit ? p.desc : '');
     String cat = isEdit ? p.category : 'Scooter';
@@ -169,8 +176,89 @@ class _AdminViewState extends State<AdminView> {
                 mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildStyledTextField(name, 'Tên xe'), const SizedBox(height: 15),
-                  _buildStyledTextField(imageUrl, 'Link ảnh', icon: Icons.link, onChanged: (v) => setStateSTB(() {})),
-                  if (imageUrl.text.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(imageUrl.text, height: 120, width: double.infinity, fit: BoxFit.cover, errorBuilder: (c,e,s) => Container(height: 80, color: Colors.red[50], child: const Center(child: Text('Lỗi ảnh')))))),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildStyledTextField(imageUrl, 'Dán link ảnh (nếu có)', icon: Icons.link, onChanged: (v) => setStateSTB(() {})),
+                      ),
+                      if (imageUrl.text.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 10),
+                          child: IconButton(
+                            icon: const Icon(Icons.add_circle, color: Colors.green, size: 30),
+                            onPressed: () => setStateSTB(() { imageUrlsList.add(imageUrl.text); imageUrl.clear(); }),
+                          ),
+                        ),
+                      const SizedBox(width: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[200], foregroundColor: Colors.black87, padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
+                        icon: const Icon(Icons.cloud_upload_outlined, size: 20),
+                        label: const Text('Tải ảnh', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () async {
+                          try {
+                            final result = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+                            if (result != null && result.files.isNotEmpty) {
+                              final file = result.files.first;
+                              if (file.bytes == null) throw Exception("Không thể đọc ảnh");
+                              
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đang tải ảnh lên...'), duration: Duration(seconds: 1)));
+                              }
+                              
+                              const String imgbbKey = "439d43e9ecca443dc2ebbd073a4ff9a8";
+                              final uri = Uri.parse("https://api.imgbb.com/1/upload");
+                              final req = http.MultipartRequest("POST", uri)
+                                ..fields['key'] = imgbbKey
+                                ..files.add(http.MultipartFile.fromBytes('image', file.bytes!, filename: file.name));
+                                
+                              final res = await req.send();
+                              final resData = await res.stream.bytesToString();
+                              final jsonMap = json.decode(resData);
+                              
+                              if (jsonMap['success'] == true) {
+                                setStateSTB(() { imageUrlsList.add(jsonMap['data']['url']); });
+                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tải ảnh thành công!'), backgroundColor: Colors.green));
+                              } else {
+                                throw Exception("Lỗi ImgBB: ${jsonMap['error']['message']}");
+                              }
+                            }
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+                          }
+                        },
+                      )
+                    ],
+                  ),
+                  if (imageUrlsList.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 15),
+                      child: SizedBox(
+                        height: 100,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: imageUrlsList.length,
+                          separatorBuilder: (c, i) => const SizedBox(width: 10),
+                          itemBuilder: (context, index) {
+                            return Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(imageUrlsList[index], height: 100, width: 100, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(height: 100, width: 100, color: Colors.red[50], child: const Center(child: Text('Lỗi ảnh')))),
+                                ),
+                                Positioned(
+                                  top: 0, right: 0,
+                                  child: GestureDetector(
+                                    onTap: () => setStateSTB(() => imageUrlsList.removeAt(index)),
+                                    child: Container(decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.cancel, color: Colors.red, size: 20)),
+                                  ),
+                                )
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 15),
                   DropdownButtonFormField<String>(value: cat, decoration: _getInputDecoration('Danh mục'), items: const [DropdownMenuItem(value: 'Scooter', child: Text('Xe tay ga')), DropdownMenuItem(value: 'Sport', child: Text('Xe thể thao')), DropdownMenuItem(value: 'Cub', child: Text('Xe số'))], onChanged: (v) => cat = v!),
                   const SizedBox(height: 15),
@@ -186,7 +274,7 @@ class _AdminViewState extends State<AdminView> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFCC0000), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
               onPressed: () {
-                final prod = ProductModel(id: isEdit ? p.id : '', name: name.text, price: '${price.text} VNĐ', category: cat, imageUrl: imageUrl.text, stock: int.tryParse(stock.text) ?? 0, sold: isEdit ? p.sold : 0, year: '2024', desc: desc.text.isEmpty ? 'Chưa có' : desc.text, colors: []);
+                final prod = ProductModel(id: isEdit ? p.id : '', name: name.text, price: '${price.text} VNĐ', category: cat, imageUrl: imageUrlsList.isNotEmpty ? imageUrlsList.first : '', imageUrls: imageUrlsList, stock: int.tryParse(stock.text) ?? 0, sold: isEdit ? p.sold : 0, year: '2024', desc: desc.text.isEmpty ? 'Chưa có' : desc.text, colors: []);
                 isEdit ? _controller.updateProduct(prod) : _controller.addProduct(prod);
                 Navigator.pop(ctx);
               },
@@ -217,7 +305,8 @@ class _AdminViewState extends State<AdminView> {
               _sidebarItem(1, Icons.inventory_2_outlined, 'Sản phẩm'),
               _sidebarItem(2, Icons.email_outlined, 'Tin nhắn liên hệ'),
               _sidebarItem(3, Icons.calendar_today_outlined, 'Lịch lái thử'),
-              _sidebarItem(4, Icons.payment_outlined, 'Quản lý đơn hàng'), // NÚT THÊM MỚI
+              _sidebarItem(4, Icons.payment_outlined, 'Quản lý đơn hàng'),
+              _sidebarItem(5, Icons.people_outline, 'Khách hàng'),
             ]
         )
     );
@@ -240,7 +329,8 @@ class _AdminViewState extends State<AdminView> {
           _mobileMenuItem(1, Icons.inventory_2_outlined, 'Sản phẩm'),
           _mobileMenuItem(2, Icons.email_outlined, 'Tin nhắn'),
           _mobileMenuItem(3, Icons.calendar_today_outlined, 'Lịch hẹn'),
-          _mobileMenuItem(4, Icons.payment_outlined, 'Đơn hàng'), // NÚT THÊM MỚI
+          _mobileMenuItem(4, Icons.payment_outlined, 'Đơn hàng'),
+          _mobileMenuItem(5, Icons.people_outline, 'Khách hàng'),
           const SizedBox(width: 15)
         ]),
       ),
